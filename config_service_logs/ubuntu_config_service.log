@@ -272,3 +272,45 @@ AttributeError: 'NoneType' object has no attribute 'strip'
  * Running on http://127.0.0.1:5002
  * Running on http://192.168.65.3:5002
 2025-09-06 16:59:43,454 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-28 15:05:48,752 - INFO - Starting Ubuntu Configuration Service...
+2025-09-28 15:05:50,156 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://192.168.65.3:5002
+2025-09-28 15:05:50,174 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-28 15:06:04,891 - INFO - Starting Ubuntu Configuration Service...
+2025-09-28 15:06:06,261 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://192.168.65.3:5002
+2025-09-28 15:06:06,265 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-28 15:14:05,214 - INFO - Starting Ubuntu Configuration Service...
+2025-09-28 15:14:06,598 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://192.168.65.3:5002
+2025-09-28 15:14:06,600 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-28 15:19:25,449 - INFO - Starting Ubuntu Configuration Service...
+2025-09-28 15:19:27,005 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://192.168.65.3:5002
+2025-09-28 15:19:27,071 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-28 15:23:29,718 - INFO - Starting Ubuntu Configuration Service...
+2025-09-28 15:23:30,843 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://192.168.65.3:5002
+2025-09-28 15:23:30,845 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-28 15:27:21,798 - INFO - Starting Ubuntu Configuration Service...
+2025-09-28 15:27:23,475 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://192.168.65.3:5002
+2025-09-28 15:27:23,481 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-28 15:32:15,682 - INFO - Starting Ubuntu Configuration Service...
+2025-09-28 15:32:17,143 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://192.168.65.3:5002
+2025-09-28 15:32:17,171 - INFO - [33mPress CTRL+C to quit[0m

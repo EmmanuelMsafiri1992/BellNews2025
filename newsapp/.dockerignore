@@ -1,25 +1,30 @@
 # Node modules - will be installed in container
 node_modules
 npm-debug.log*
-package-lock.json
 
 # Build outputs
 public/build
 public/hot
+dist/
 
-# Large vendor files
+# Large vendor files (major space saver for ARM builds)
 vendor/*/tests
 vendor/*/test
 vendor/*/docs
 vendor/*/*/tests
 vendor/*/*/test
 vendor/*/*/docs
+vendor/laravel/sail
+vendor/phpunit
+vendor/fakerphp
+vendor/mockery
 
 # Development files
-.env.development.local
+.env*
 .git
 .gitignore
-README.md
+*.md
+README*
 
 # IDE files
 .vscode
@@ -31,18 +36,30 @@ README.md
 .DS_Store
 Thumbs.db
 
-# Laravel specific
+# Laravel specific (exclude large runtime files)
 storage/app/*
 storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/testing/*
 storage/framework/views/*
 storage/logs/*
+bootstrap/cache/*
 
-# Testing
+# Testing and docs
 coverage
+tests/
 *.log
 
-# Temporary files
+# Temporary and backup files
 *.tmp
 *.temp
+*.bak
+*.backup
+
+# Docker files
+Dockerfile*
+docker-compose*
+
+# Large assets that aren't needed for production
+resources/js/node_modules
+resources/css/node_modules

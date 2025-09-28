@@ -1,0 +1,68 @@
+# Ultra-fast Nano Pi build - uses existing Dockerfiles for speed
+# Optimized for rapid deployment on ARM64 devices
+
+services:
+  # Ubuntu Configuration Service (existing, proven fast)
+  config_service:
+    build:
+      context: .
+      dockerfile: Dockerfile_config
+      platforms:
+        - linux/arm64
+    network_mode: "host"
+    restart: always
+    container_name: config_service
+    volumes:
+      - /etc/netplan:/etc/netplan
+      - ./config_service_logs:/var/log
+    privileged: true
+    environment:
+      IN_DOCKER_TEST_MODE: "false"
+
+  # Main Python Flask application (existing, minimal)
+  pythonapp:
+    build:
+      context: ./bellapp
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    restart: always
+    container_name: bellapp
+    volumes:
+      - ./bellapp/logs:/bellapp/logs
+    depends_on:
+      - config_service
+    environment:
+      UBUNTU_CONFIG_SERVICE_URL: http://localhost:5002
+
+  # Laravel news application (existing, proven)
+  laravelapp:
+    build:
+      context: ./newsapp
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    environment:
+      - VITE_API_BASE_URL=http://pythonapp:5000
+      - APP_ENV=production
+      - APP_DEBUG=false
+    ports:
+      - "8000:8000"
+      - "5173:5173"
+    restart: always
+    container_name: newsapp
+    depends_on:
+      - pythonapp
+
+volumes:
+  bellapp_logs:
+    driver: local
+  config_logs:
+    driver: local
+
+networks:
+  default:
+    driver: bridge

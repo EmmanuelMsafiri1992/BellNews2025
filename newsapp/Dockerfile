@@ -2,7 +2,10 @@ FROM php:8.2-apache
 
 WORKDIR /var/www/html
 
-# Install system dependencies + PHP extensions first
+# Enable Apache rewrite (required for Laravel pretty URLs)
+RUN a2enmod rewrite
+
+# Install system dependencies + PHP extensions
 RUN apt-get update && \
     apt-get install -y \
        libzip-dev \
@@ -28,52 +31,55 @@ RUN apt-get update && \
          gd \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js using NodeSource repository for better ARM compatibility
+# Install Node.js (for Vite build)
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/* \
-    || echo "Node.js installation failed, will use fallback method"
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Composer first
+# Install Composer
 RUN curl -sS https://getcomposer.org/installer \
       | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Copy composer files for dependency installation
+# Copy composer files & install PHP dependencies (production only)
 COPY composer.json composer.lock* /var/www/html/
-
-# Install PHP dependencies
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
-# Copy application files
+# Copy application files (excluding vendor to avoid dev dependencies)
 COPY . /var/www/html
+RUN rm -rf vendor
 
-# Run post-install scripts
-RUN composer dump-autoload --optimize
+# Reinstall production dependencies and optimize Laravel
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts \
+ && composer dump-autoload --optimize \
+ && php artisan config:clear \
+ && php artisan route:clear \
+ && php artisan view:clear
 
-# Try to install Node.js dependencies and build frontend assets (optional)
+# Build frontend assets
 RUN if command -v npm >/dev/null 2>&1; then \
-        echo "Installing npm dependencies..." && \
-        npm install --production=false --no-optional --ignore-scripts 2>/dev/null || echo "npm install failed, will use runtime fallback" && \
-        npm run build 2>/dev/null || npm run build:tv 2>/dev/null || echo "Frontend build failed, will use runtime fallback" && \
-        npm cache clean --force 2>/dev/null || true; \
-    else \
-        echo "Node.js not available, will use runtime fallback"; \
+        npm install --production=false --no-optional --ignore-scripts && \
+        npm run build || echo "Vite build failed, skipping..."; \
     fi
 
 # Laravel setup - create required directories and set permissions
 RUN mkdir -p storage/logs storage/framework/{cache,sessions,views} \
     && mkdir -p database \
     && touch database/database.sqlite \
-    && php artisan storage:link \
-    && chown -R www-data:www-data storage/ bootstrap/cache/ database/ \
-    && chmod -R 775 storage/ bootstrap/cache/ database/
+    && php artisan storage:link || true \
+    && chown -R www-data:www-data storage bootstrap/cache database \
+    && chmod -R 775 storage bootstrap/cache database
 
-# Generate Laravel application key if not set
+# Generate Laravel app key if not already set
 RUN php artisan key:generate || echo "App key already exists"
 
-# Copy and set up entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Apache config for Laravel (public folder as DocumentRoot)
+RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf \
+ && sed -i 's|/var/www/|/var/www/html/public|g' /etc/apache2/apache2.conf
 
-EXPOSE 8000
+# Copy entrypoint script and fix line endings
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && chmod +x /usr/local/bin/docker-entrypoint.sh
+
+EXPOSE 80
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["apache2-foreground"]

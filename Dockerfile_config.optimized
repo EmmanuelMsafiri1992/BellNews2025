@@ -8,17 +8,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /config_service
 
-# Copy and install Python requirements
-COPY config_service_requirements.txt* ./
-RUN if [ -f config_service_requirements.txt ]; then \
-        pip3 install --no-cache-dir -r config_service_requirements.txt; \
+# Copy Python requirements and install
+COPY requirements.txt* ./
+RUN if [ -f requirements.txt ]; then \
+        pip3 install --no-cache-dir -r requirements.txt; \
     fi
 
 # Copy config service files
-COPY config_service/ ./
+COPY ubuntu_config_service.py ./
+COPY network-config-handler.sh ./
 COPY auto-time-fix.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/auto-time-fix.sh
+RUN chmod +x /usr/local/bin/auto-time-fix.sh network-config-handler.sh
 
 EXPOSE 5002
 
-CMD ["python3", "config_service.py"]
+CMD ["python3", "ubuntu_config_service.py"]
