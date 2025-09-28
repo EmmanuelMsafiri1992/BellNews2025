@@ -7,7 +7,9 @@ version: '3.8'
 services:
   # Time synchronization service - Critical for SSL and Docker operations
   time-fix:
-    image: ${DOCKER_HUB_USERNAME:-yourusername}/bellnews-time-fix:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.timefix
     platform: linux/arm64
     container_name: time-fix-service
     privileged: true
@@ -21,7 +23,9 @@ services:
 
   # Ubuntu Configuration Service (FIXED - with proper health checks)
   config_service:
-    image: ${DOCKER_HUB_USERNAME:-yourusername}/bellnews-config-service:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile_config
     platform: linux/arm64
     network_mode: "host"
     restart: always
@@ -45,7 +49,7 @@ services:
 
   # Main Python Flask application (bellapp) - FIXED networking
   pythonapp:
-    image: ${DOCKER_HUB_USERNAME:-yourusername}/bellnews-bellapp:${IMAGE_TAG:-latest}
+    build: ./bellapp
     platform: linux/arm64
     ports:
       - "5000:5000"
@@ -75,7 +79,7 @@ services:
 
   # Laravel news application - FIXED with dynamic IP detection
   laravelapp:
-    image: ${DOCKER_HUB_USERNAME:-yourusername}/bellnews-newsapp:${IMAGE_TAG:-latest}
+    build: ./newsapp
     platform: linux/arm64
     environment:
       # FIXED: Use dynamic IP detection instead of hardcoded pythonapp
