@@ -82,11 +82,15 @@ sudo pip3 install MarkupSafe==1.1.1
 sudo pip3 install itsdangerous==1.1.0
 sudo pip3 install click==7.1.2
 
-# Install other requirements with compatible versions
-sudo pip3 install psutil==5.8.0
+# Install other requirements with Python 3.5 compatible versions
+echo "[INFO] Installing Python 3.5 compatible packages..."
+sudo pip3 install psutil==5.6.7
 sudo pip3 install requests==2.25.1
-sudo pip3 install PyYAML==5.4.1
-sudo pip3 install pytz==2021.3
+sudo pip3 install "PyYAML>=3.13,<4.0"
+sudo pip3 install pytz==2019.3
+
+# Additional packages that might be needed
+sudo pip3 install bcrypt==3.1.7 || echo "[WARNING] bcrypt install failed, continuing..."
 
 echo "[SUCCESS] System dependencies installed for Ubuntu 16.04"
 
