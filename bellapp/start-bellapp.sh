@@ -55,6 +55,12 @@ if ! command_exists python3; then
     echo "[INFO] Installing Python3..."
     sudo apt update
     sudo apt install -y python3 python3-pip python3-venv python3-dev
+else
+    # Check if python3-venv is installed
+    if ! python3 -c "import venv" 2>/dev/null; then
+        echo "[INFO] Installing python3-venv..."
+        sudo apt install -y python3-venv
+    fi
 fi
 
 if ! command_exists nc; then
