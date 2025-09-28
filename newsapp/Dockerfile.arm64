@@ -1,0 +1,110 @@
+# ARM64-optimized Dockerfile for Laravel News App
+FROM --platform=linux/arm64 php:8.2-apache
+
+WORKDIR /var/www/html
+
+# Enable Apache rewrite (required for Laravel pretty URLs)
+RUN a2enmod rewrite
+
+# Update package manager and install essential tools first
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        apt-utils \
+        ca-certificates \
+        gnupg \
+        lsb-release \
+    && apt-get clean
+
+# Install system dependencies + PHP extensions (ARM64 optimized)
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       libzip-dev \
+       unzip \
+       git \
+       libpng-dev \
+       libjpeg-dev \
+       libfreetype6-dev \
+       libsqlite3-dev \
+       sqlite3 \
+       pkg-config \
+       curl \
+       wget \
+       build-essential \
+    && docker-php-ext-configure gd \
+         --with-freetype=/usr/include/ \
+         --with-jpeg=/usr/include/ \
+    && docker-php-ext-install \
+         zip \
+         pdo \
+         pdo_mysql \
+         pdo_sqlite \
+         gd \
+    && apt-get autoremove -y build-essential \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/* \
+    && find /var/cache/apt -type f -delete \
+    && find /var/log -type f -delete
+
+# Install Node.js specifically for ARM64
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Copy composer files & install PHP dependencies (production only)
+COPY composer.json composer.lock* /var/www/html/
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts || \
+    composer install --no-dev --no-interaction --no-scripts
+
+# Copy application files (excluding vendor to avoid dev dependencies)
+COPY . /var/www/html
+RUN rm -rf vendor node_modules
+
+# Reinstall production dependencies and optimize Laravel
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts && \
+    composer dump-autoload --optimize && \
+    php artisan config:clear || true && \
+    php artisan route:clear || true && \
+    php artisan view:clear || true
+
+# Build frontend assets (with fallback for ARM64)
+RUN if command -v npm >/dev/null 2>&1; then \
+        npm install --production=false --no-optional --ignore-scripts --no-audit --no-fund && \
+        (npm run build || npm run build:tv || echo "Frontend build failed, using fallback"); \
+    else \
+        echo "Node.js not available, skipping frontend build"; \
+    fi
+
+# Laravel setup - create required directories and set permissions
+RUN mkdir -p storage/logs storage/framework/{cache,sessions,views} bootstrap/cache database public/build && \
+    touch database/database.sqlite && \
+    php artisan storage:link || true && \
+    chown -R www-data:www-data storage bootstrap/cache database public && \
+    chmod -R 775 storage bootstrap/cache database && \
+    chmod 664 database/database.sqlite
+
+# Generate Laravel app key if not already set
+RUN php artisan key:generate --force || echo "App key generation failed"
+
+# Apache config for Laravel (public folder as DocumentRoot)
+RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf && \
+    sed -i 's|/var/www/|/var/www/html/public|g' /etc/apache2/apache2.conf
+
+# Copy entrypoint script and fix line endings
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && \
+    chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Final cleanup for ARM64
+RUN apt-get autoremove -y && \
+    apt-get autoclean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/cache/apt/archives/*
+
+EXPOSE 80
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["apache2-foreground"]

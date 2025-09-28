@@ -7,7 +7,7 @@ RUN a2enmod rewrite
 
 # Install system dependencies + PHP extensions
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
        libzip-dev \
        unzip \
        git \
@@ -29,12 +29,14 @@ RUN apt-get update && \
          pdo_mysql \
          pdo_sqlite \
          gd \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin
 
-# Install Node.js (for Vite build)
+# Install Node.js (for Vite build) - ARM64 compatible
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/cache/apt/archives/*.deb
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer \

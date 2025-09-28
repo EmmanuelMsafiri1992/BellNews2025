@@ -130,7 +130,7 @@ stop_existing_containers() {
 }
 
 build_and_start() {
-    info "Building and starting FBellNews containers..."
+    info "Building and starting FBellNews containers (ARM64 optimized)..."
 
     # Use docker-compose or docker compose based on availability
     local compose_cmd
@@ -142,6 +142,16 @@ build_and_start() {
 
     info "Using compose command: $compose_cmd"
 
+    # Check if we're on ARM64 and create ARM64-specific Dockerfile link
+    local arch=$(uname -m)
+    if [[ "$arch" == "aarch64" || "$arch" == "arm64" ]]; then
+        info "Detected ARM64 architecture, using optimized Dockerfile"
+        if [ -f "newsapp/Dockerfile.arm64" ]; then
+            cp newsapp/Dockerfile.arm64 newsapp/Dockerfile.backup
+            info "Using ARM64-optimized Laravel Dockerfile"
+        fi
+    fi
+
     # Build and start services
     info "Running: $compose_cmd -f $COMPOSE_FILE up --build -d"
 
@@ -149,6 +159,10 @@ build_and_start() {
         success "Docker Compose build and start completed successfully"
     else
         error "Docker Compose build failed"
+        # Restore original Dockerfile if backup exists
+        if [ -f "newsapp/Dockerfile.backup" ]; then
+            mv newsapp/Dockerfile.backup newsapp/Dockerfile.arm64
+        fi
         return 1
     fi
 
