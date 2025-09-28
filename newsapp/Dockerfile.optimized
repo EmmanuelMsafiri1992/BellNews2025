@@ -1,0 +1,73 @@
+# Multi-stage build optimized for ARM64/Nano Pi
+# Stage 1: Build stage with all tools
+FROM --platform=linux/arm64 php:8.2-apache as builder
+
+WORKDIR /build
+
+# Install all build dependencies in one layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libzip-dev unzip git libpng-dev libjpeg-dev libfreetype6-dev \
+    libsqlite3-dev sqlite3 pkg-config curl ca-certificates wget \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install zip pdo pdo_mysql pdo_sqlite gd \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
+
+# Install Node.js 18 LTS (ARM64 optimized)
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
+
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Copy dependency files first for better caching
+COPY composer.json composer.lock* package.json package-lock.json* ./
+
+# Install PHP dependencies (cached layer)
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
+
+# Install and build frontend assets (cached layer)
+RUN npm ci --only=production --ignore-scripts \
+    && npm run build \
+    && npm cache clean --force
+
+# Stage 2: Runtime stage (minimal)
+FROM --platform=linux/arm64 php:8.2-apache as runtime
+
+WORKDIR /var/www/html
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libzip4 libpng16-16 libjpeg62-turbo libfreetype6 libsqlite3-0 sqlite3 \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install zip pdo pdo_mysql pdo_sqlite gd \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/*
+
+# Copy Composer from builder
+COPY --from=builder /usr/local/bin/composer /usr/local/bin/composer
+
+# Copy vendor and built assets from builder stage
+COPY --from=builder /build/vendor ./vendor
+COPY --from=builder /build/node_modules ./node_modules
+COPY --from=builder /build/public/build ./public/build
+
+# Copy application code
+COPY . .
+
+# Laravel setup
+RUN mkdir -p storage/logs storage/framework/{cache,sessions,views} database \
+    && touch database/database.sqlite \
+    && composer dump-autoload --optimize \
+    && php artisan storage:link \
+    && chown -R www-data:www-data storage/ bootstrap/cache/ database/ \
+    && chmod -R 775 storage/ bootstrap/cache/ database/
+
+# Generate app key
+RUN php artisan key:generate --force
+
+# Copy and setup entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+EXPOSE 8000
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

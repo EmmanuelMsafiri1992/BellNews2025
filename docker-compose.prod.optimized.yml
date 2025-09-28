@@ -1,0 +1,101 @@
+# Optimized production Docker Compose for Nano Pi
+# Uses multi-stage builds for fast compilation and small runtime images
+
+version: '3.8'
+
+services:
+  # Time synchronization service - CRITICAL for SSL certificates and Docker builds
+  time-fix:
+    build:
+      context: .
+      dockerfile: Dockerfile.timefix
+      platforms:
+        - linux/arm64
+    container_name: time-fix-service
+    privileged: true
+    network_mode: "host"
+    volumes:
+      - /var/log:/var/log
+    restart: "no"
+    command: ["/usr/local/bin/auto-time-fix.sh"]
+
+  # Ubuntu Configuration Service (optimized)
+  config_service:
+    build:
+      context: .
+      dockerfile: Dockerfile_config.optimized
+      platforms:
+        - linux/arm64
+    network_mode: "host"
+    restart: always
+    container_name: config_service
+    volumes:
+      - /etc/netplan:/etc/netplan
+      - ./config_service_logs:/var/log
+    privileged: true
+    environment:
+      IN_DOCKER_TEST_MODE: "false"
+    depends_on:
+      - time-fix
+
+  # Main Python Flask application (multi-stage optimized)
+  pythonapp:
+    build:
+      context: ./bellapp
+      dockerfile: Dockerfile.optimized
+      platforms:
+        - linux/arm64
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    restart: always
+    container_name: bellapp
+    volumes:
+      - ./bellapp/logs:/bellapp/logs
+    depends_on:
+      - time-fix
+      - config_service
+    environment:
+      UBUNTU_CONFIG_SERVICE_URL: http://localhost:5002
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Laravel news application (multi-stage optimized)
+  laravelapp:
+    build:
+      context: ./newsapp
+      dockerfile: Dockerfile.optimized
+      platforms:
+        - linux/arm64
+    environment:
+      - VITE_API_BASE_URL=http://pythonapp:5000
+      - APP_ENV=production
+      - APP_DEBUG=false
+    ports:
+      - "8000:8000"
+      - "5173:5173"
+    restart: always
+    container_name: newsapp
+    depends_on:
+      - time-fix
+      - pythonapp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  bellapp_logs:
+    driver: local
+  config_logs:
+    driver: local
+
+networks:
+  default:
+    driver: bridge
