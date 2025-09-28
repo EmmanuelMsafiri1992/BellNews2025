@@ -92,13 +92,32 @@ echo "[SUCCESS] System dependencies verified"
 echo "[STEP 2/6] Setting up Python virtual environment..."
 
 # Create virtual environment if it doesn't exist
-if [ ! -d "$VENV_DIR" ]; then
+if [ ! -d "$VENV_DIR" ] || [ ! -f "$VENV_DIR/bin/activate" ]; then
     echo "[INFO] Creating Python virtual environment..."
-    python3 -m venv "$VENV_DIR"
+    # Remove incomplete venv if exists
+    rm -rf "$VENV_DIR"
+
+    # Try to create virtual environment
+    if python3 -m venv "$VENV_DIR"; then
+        echo "[SUCCESS] Virtual environment created"
+    else
+        echo "[ERROR] Failed to create virtual environment"
+        echo "[INFO] Trying alternative method..."
+        # Alternative method for older systems
+        virtualenv -p python3 "$VENV_DIR" || {
+            echo "[WARNING] Virtual environment creation failed, installing packages globally"
+            VENV_DIR=""
+        }
+    fi
 fi
 
-# Activate virtual environment
-source "$VENV_DIR/bin/activate"
+# Activate virtual environment if it was created successfully
+if [ -n "$VENV_DIR" ] && [ -f "$VENV_DIR/bin/activate" ]; then
+    echo "[INFO] Activating virtual environment..."
+    source "$VENV_DIR/bin/activate"
+else
+    echo "[WARNING] Using system Python (no virtual environment)"
+fi
 
 # Install Python requirements
 if [ -f "$BELLAPP_DIR/requirements.txt" ]; then
@@ -180,7 +199,10 @@ fi
 echo "[STEP 6/6] Starting BellApp..."
 
 cd "$BELLAPP_DIR"
-source "$VENV_DIR/bin/activate"
+# Activate virtual environment if available
+if [ -n "$VENV_DIR" ] && [ -f "$VENV_DIR/bin/activate" ]; then
+    source "$VENV_DIR/bin/activate"
+fi
 
 # Create startup log
 STARTUP_LOG="$BELLAPP_DIR/startup.log"
