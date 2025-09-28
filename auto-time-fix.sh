@@ -1,7 +1,8 @@
 #!/bin/bash
-# Auto Time Fix Script for FBellNewsV3
-# This script automatically detects and fixes system time issues
+# Auto Time & Network Fix Script for FBellNewsV3
+# This script automatically detects and fixes system time and network issues
 # Compatible with Ubuntu, Debian, and embedded systems
+# Includes DNS resolution fixes for Docker registry connectivity
 
 set -euo pipefail
 
@@ -381,27 +382,127 @@ should_run_periodic_check() {
     return 1
 }
 
+# Network fix functions (embedded from auto-network-fix.sh)
+run_network_fix() {
+    info "Running network connectivity check and fixes..."
+
+    # Test DNS resolution for Docker registry
+    local test_domains=("registry-1.docker.io" "docker.io" "google.com")
+    local dns_failed=0
+
+    for domain in "${test_domains[@]}"; do
+        if ! timeout 5 nslookup "$domain" >/dev/null 2>&1; then
+            warn "DNS lookup failed for: $domain"
+            ((dns_failed++))
+        fi
+    done
+
+    # If DNS is failing, apply fixes
+    if [ $dns_failed -gt 0 ]; then
+        info "DNS issues detected, applying network fixes..."
+
+        # Backup current resolv.conf
+        [ -f /etc/resolv.conf ] && cp /etc/resolv.conf /etc/resolv.conf.backup.$(date +%s) 2>/dev/null || true
+
+        # Create new resolv.conf with reliable DNS servers
+        cat > /etc/resolv.conf << 'EOF'
+# FBellNews Auto-generated DNS configuration
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+nameserver 1.1.1.1
+nameserver 1.0.0.1
+nameserver 9.9.9.9
+options timeout:2
+options attempts:3
+EOF
+
+        # Configure Docker daemon DNS
+        mkdir -p /etc/docker
+        cat > /etc/docker/daemon.json << 'EOF'
+{
+  "dns": ["8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1"],
+  "dns-opts": ["timeout:2", "attempts:3"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+
+        # Configure systemd-resolved if available
+        if [ -d "/etc/systemd" ]; then
+            mkdir -p /etc/systemd/resolved.conf.d
+            cat > /etc/systemd/resolved.conf.d/fbellnews.conf << 'EOF'
+[Resolve]
+DNS=8.8.8.8 8.8.4.4 1.1.1.1 1.0.0.1
+FallbackDNS=9.9.9.9 208.67.222.222
+DNSSEC=no
+Cache=yes
+EOF
+
+            # Restart systemd-resolved
+            systemctl restart systemd-resolved 2>/dev/null || true
+        fi
+
+        # Restart Docker if running
+        if systemctl is-active --quiet docker 2>/dev/null; then
+            info "Restarting Docker daemon with new DNS configuration..."
+            systemctl restart docker
+            sleep 3
+        fi
+
+        # Flush DNS cache
+        if command -v systemd-resolve >/dev/null 2>&1; then
+            systemd-resolve --flush-caches 2>/dev/null || true
+        fi
+
+        success "Network fixes applied"
+
+        # Test again
+        sleep 2
+        if timeout 5 nslookup "registry-1.docker.io" >/dev/null 2>&1; then
+            success "Docker registry DNS resolution now working"
+        else
+            warn "DNS resolution still having issues, but fixes have been applied"
+        fi
+    else
+        success "DNS resolution is working properly"
+    fi
+}
+
 main() {
     print_banner
-    
+
     # Ensure log directory exists
     mkdir -p "$(dirname "$LOGFILE")" 2>/dev/null || true
-    
-    info "Starting $SCRIPT_NAME..."
+
+    info "Starting $SCRIPT_NAME with Network Fix..."
     info "System: $(uname -a)"
     info "Current time: $(date 2>/dev/null || echo 'UNKNOWN')"
-    
+
     check_if_running
     create_lock
-    
+
+    # First run network fix (critical for NTP and Docker)
+    if check_root_privileges; then
+        run_network_fix
+    else
+        warn "Skipping network fix (requires root privileges)"
+    fi
+
     # Check if time is valid
     if check_time_validity; then
         if should_run_periodic_check; then
             info "Running periodic time check..."
             sync_with_ntp || info "Periodic NTP sync failed (this is normal)"
         else
-            info "System time is valid and recent check exists, skipping fix"
-            exit 0
+            info "System time is valid and recent check exists, skipping time fix"
+            # Still run network check for Docker
+            if check_root_privileges; then
+                info "Running network connectivity check..."
+                timeout 5 nslookup "registry-1.docker.io" >/dev/null 2>&1 || run_network_fix
+            fi
         fi
     else
         info "Time validity check failed, running comprehensive fix..."
@@ -410,16 +511,23 @@ main() {
             exit 1
         fi
     fi
-    
+
     # Update check timestamp
     touch "$TIME_CHECK_FILE" 2>/dev/null || true
-    
+
     # Create auto-fix service for future runs
     create_autofix_service
-    
-    success "Time fix completed successfully"
+
+    success "Time and network fix completed successfully"
     info "Final system time: $(date)"
-    
+
+    # Final connectivity test
+    if timeout 5 nslookup "registry-1.docker.io" >/dev/null 2>&1; then
+        success "Docker registry connectivity confirmed"
+    else
+        warn "Docker registry connectivity still having issues"
+    fi
+
     cleanup
 }
 

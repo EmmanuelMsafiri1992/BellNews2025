@@ -1,14 +1,74 @@
-# Ultra-fast Nano Pi build - uses existing Dockerfiles for speed
-# Optimized for rapid deployment on ARM64 devices
+# Docker Compose Override for Nano Pi Fast Deploy with DNS Fixes
+# This file automatically handles DNS resolution issues
+# Usage: docker-compose -f docker-compose.prod.yml -f docker-compose.nano-pi-fast.yml up --build -d
 
 services:
-  # Ubuntu Configuration Service (existing, proven fast)
+  # Enhanced time-fix service with network fixes
+  time-fix:
+    build:
+      context: .
+      dockerfile: Dockerfile.timefix
+    container_name: time-fix-service
+    privileged: true
+    network_mode: "host"
+    volumes:
+      - /var/log:/var/log
+      - /etc/resolv.conf:/etc/host-resolv.conf:ro
+      - /etc/docker:/etc/host-docker
+    restart: "no"
+    command: ["/usr/local/bin/auto-time-fix.sh"]
+    environment:
+      - AUTO_FIX_DNS=true
+      - DNS_SERVERS=8.8.8.8,8.8.4.4,1.1.1.1
+
+  # Python Flask web application with DNS dependency
+  pythonapp:
+    build: ./bellapp
+    ports:
+      - "5000:5000"
+    restart: always
+    container_name: bellapp
+    volumes:
+      - ./bellapp/logs:/bellapp/logs
+    depends_on:
+      - time-fix
+      - config_service
+    environment:
+      UBUNTU_CONFIG_SERVICE_URL: http://localhost:5002
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
+    dns_opt:
+      - timeout:2
+      - attempts:3
+
+  # Laravel news application with DNS fixes
+  laravelapp:
+    build: ./newsapp
+    environment:
+      - VITE_API_BASE_URL=http://pythonapp:5000
+    ports:
+      - "8000:8000"
+      - "5173:5173"
+    restart: always
+    container_name: newsapp
+    depends_on:
+      - time-fix
+      - pythonapp
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
+    dns_opt:
+      - timeout:2
+      - attempts:3
+
+  # Ubuntu Configuration Service with DNS fixes
   config_service:
     build:
       context: .
       dockerfile: Dockerfile_config
-      platforms:
-        - linux/arm64
     network_mode: "host"
     restart: always
     container_name: config_service
@@ -18,51 +78,9 @@ services:
     privileged: true
     environment:
       IN_DOCKER_TEST_MODE: "false"
-
-  # Main Python Flask application (existing, minimal)
-  pythonapp:
-    build:
-      context: ./bellapp
-      dockerfile: Dockerfile
-      platforms:
-        - linux/arm64
-    ports:
-      - "5000:5000"
-      - "5001:5001"
-    restart: always
-    container_name: bellapp
-    volumes:
-      - ./bellapp/logs:/bellapp/logs
-    depends_on:
-      - config_service
-    environment:
-      UBUNTU_CONFIG_SERVICE_URL: http://localhost:5002
-
-  # Laravel news application (existing, proven)
-  laravelapp:
-    build:
-      context: ./newsapp
-      dockerfile: Dockerfile
-      platforms:
-        - linux/arm64
-    environment:
-      - VITE_API_BASE_URL=http://pythonapp:5000
-      - APP_ENV=production
-      - APP_DEBUG=false
-    ports:
-      - "8000:8000"
-      - "5173:5173"
-    restart: always
-    container_name: newsapp
-    depends_on:
-      - pythonapp
-
-volumes:
-  bellapp_logs:
-    driver: local
-  config_logs:
-    driver: local
-
-networks:
-  default:
-    driver: bridge
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    dns_opt:
+      - timeout:2
+      - attempts:3

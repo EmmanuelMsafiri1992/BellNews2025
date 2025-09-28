@@ -1,42 +1,237 @@
 #!/bin/bash
-# Ultra-fast build script optimized specifically for Nano Pi ARM64
-# Focuses on minimal context and maximum caching
+# FBellNews Fast Build Script for Nano Pi
+# Automatically fixes DNS/network issues and runs Docker Compose
+# Usage: sudo ./build-nano-pi-fast.sh
 
-echo "🚀 Starting ULTRA-FAST Nano Pi build process..."
+set -e
 
-# Kill any existing containers to free resources
-echo "🧹 Cleaning up existing containers..."
-docker compose -f docker-compose.prod.optimized.yml down 2>/dev/null || true
-docker system prune -f
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMPOSE_FILE="$SCRIPT_DIR/docker-compose.prod.yml"
 
-# Enable all performance optimizations
-export DOCKER_BUILDKIT=1
-export BUILDKIT_PROGRESS=plain
-export DOCKER_DEFAULT_PLATFORM=linux/arm64
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-echo "⚡ Building services with maximum optimization..."
+info() {
+    echo -e "${BLUE}[INFO]${NC} $*"
+}
 
-# Build in stages to maximize cache usage and reduce memory pressure
-echo "📦 Building config service (smallest first)..."
-docker compose -f docker-compose.prod.optimized.yml build config_service
+success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $*"
+}
 
-echo "🕐 Building time-fix service..."
-docker compose -f docker-compose.prod.optimized.yml build time-fix
+error() {
+    echo -e "${RED}[ERROR]${NC} $*"
+}
 
-echo "🐍 Building Python app..."
-docker compose -f docker-compose.prod.optimized.yml build pythonapp
+warn() {
+    echo -e "${YELLOW}[WARN]${NC} $*"
+}
 
-echo "🌐 Building Laravel app (largest - last)..."
-docker compose -f docker-compose.prod.optimized.yml build laravelapp
+print_banner() {
+    echo -e "${BLUE}"
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║                  FBellNews Fast Build                       ║"
+    echo "║              Auto DNS Fix + Docker Build                    ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+}
 
-echo "🎯 Starting all services..."
-docker compose -f docker-compose.prod.optimized.yml up -d
+check_requirements() {
+    info "Checking system requirements..."
 
-echo "✅ Build complete! Services status:"
-docker compose -f docker-compose.prod.optimized.yml ps
+    # Check if running as root
+    if [[ $EUID -ne 0 ]]; then
+        error "This script must be run as root to fix DNS issues"
+        echo "Please run: sudo $0"
+        exit 1
+    fi
 
-echo "🎉 Your optimized application is now running!"
-echo "📊 Access points:"
-echo "   - Laravel News App: http://localhost:8000"
-echo "   - Python API: http://localhost:5000"
-echo "   - Config Service: http://localhost:5002"
+    # Check if Docker is installed
+    if ! command -v docker >/dev/null 2>&1; then
+        error "Docker is not installed"
+        exit 1
+    fi
+
+    # Check if Docker Compose is available
+    if ! command -v docker-compose >/dev/null 2>&1 && ! docker compose version >/dev/null 2>&1; then
+        error "Docker Compose is not available"
+        exit 1
+    fi
+
+    # Check if compose file exists
+    if [ ! -f "$COMPOSE_FILE" ]; then
+        error "Docker Compose file not found: $COMPOSE_FILE"
+        exit 1
+    fi
+
+    success "System requirements check passed"
+}
+
+fix_dns_fast() {
+    info "Applying fast DNS fixes..."
+
+    # Backup current DNS config
+    [ -f /etc/resolv.conf ] && cp /etc/resolv.conf /etc/resolv.conf.backup.$(date +%s) 2>/dev/null || true
+
+    # Set reliable DNS servers immediately
+    cat > /etc/resolv.conf << 'EOF'
+# FBellNews Auto DNS Configuration
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+nameserver 1.1.1.1
+nameserver 1.0.0.1
+options timeout:2
+options attempts:3
+options rotate
+EOF
+
+    # Configure Docker daemon DNS
+    mkdir -p /etc/docker
+    cat > /etc/docker/daemon.json << 'EOF'
+{
+  "dns": ["8.8.8.8", "8.8.4.4", "1.1.1.1"],
+  "dns-opts": ["timeout:2", "attempts:3"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+
+    # Restart Docker daemon
+    info "Restarting Docker with new DNS configuration..."
+    systemctl restart docker
+    sleep 3
+
+    # Test DNS resolution
+    info "Testing DNS resolution..."
+    if timeout 5 nslookup registry-1.docker.io >/dev/null 2>&1; then
+        success "DNS resolution working - Docker registry accessible"
+    else
+        warn "DNS still having issues, but proceeding with build..."
+    fi
+}
+
+stop_existing_containers() {
+    info "Stopping existing containers..."
+
+    # Stop all running containers for this project
+    docker-compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+
+    # Clean up any dangling containers
+    docker container prune -f >/dev/null 2>&1 || true
+
+    success "Existing containers stopped"
+}
+
+build_and_start() {
+    info "Building and starting FBellNews containers..."
+
+    # Use docker-compose or docker compose based on availability
+    local compose_cmd
+    if command -v docker-compose >/dev/null 2>&1; then
+        compose_cmd="docker-compose"
+    else
+        compose_cmd="docker compose"
+    fi
+
+    info "Using compose command: $compose_cmd"
+
+    # Build and start services
+    info "Running: $compose_cmd -f $COMPOSE_FILE up --build -d"
+
+    if $compose_cmd -f "$COMPOSE_FILE" up --build -d; then
+        success "Docker Compose build and start completed successfully"
+    else
+        error "Docker Compose build failed"
+        return 1
+    fi
+
+    # Wait a moment for containers to stabilize
+    sleep 5
+
+    # Check container status
+    info "Checking container status..."
+    $compose_cmd -f "$COMPOSE_FILE" ps
+
+    # Show logs for any failed containers
+    local failed_containers=$($compose_cmd -f "$COMPOSE_FILE" ps --filter "status=exited" --format "table {{.Service}}" | tail -n +2)
+    if [ -n "$failed_containers" ]; then
+        warn "Some containers failed to start:"
+        echo "$failed_containers"
+
+        info "Showing logs for failed containers..."
+        while read -r service; do
+            if [ -n "$service" ]; then
+                echo -e "\n${YELLOW}=== Logs for $service ===${NC}"
+                $compose_cmd -f "$COMPOSE_FILE" logs --tail=20 "$service"
+            fi
+        done <<< "$failed_containers"
+    else
+        success "All containers are running successfully"
+    fi
+}
+
+show_service_urls() {
+    info "Service URLs:"
+    echo "  • Python App (bellapp):    http://localhost:5000"
+    echo "  • Laravel App (newsapp):   http://localhost:8000"
+    echo "  • Vite Dev Server:         http://localhost:5173"
+    echo "  • Config Service:          http://localhost:5002"
+    echo ""
+    info "To view logs: docker-compose -f docker-compose.prod.yml logs -f [service-name]"
+    info "To stop all: docker-compose -f docker-compose.prod.yml down"
+}
+
+main() {
+    print_banner
+
+    info "Starting FBellNews Fast Build process..."
+    info "Working directory: $SCRIPT_DIR"
+
+    # Run all checks and fixes
+    check_requirements
+    fix_dns_fast
+    stop_existing_containers
+
+    if build_and_start; then
+        echo ""
+        success "🎉 FBellNews deployment completed successfully!"
+        show_service_urls
+    else
+        error "❌ Deployment failed"
+        exit 1
+    fi
+}
+
+# Handle script arguments
+case "${1:-}" in
+    "stop")
+        info "Stopping FBellNews services..."
+        docker-compose -f "$COMPOSE_FILE" down --remove-orphans
+        success "All services stopped"
+        ;;
+    "logs")
+        if [ -n "${2:-}" ]; then
+            docker-compose -f "$COMPOSE_FILE" logs -f "$2"
+        else
+            docker-compose -f "$COMPOSE_FILE" logs -f
+        fi
+        ;;
+    "status")
+        docker-compose -f "$COMPOSE_FILE" ps
+        ;;
+    "restart")
+        info "Restarting FBellNews services..."
+        docker-compose -f "$COMPOSE_FILE" restart
+        success "Services restarted"
+        ;;
+    *)
+        main "$@"
+        ;;
+esac
