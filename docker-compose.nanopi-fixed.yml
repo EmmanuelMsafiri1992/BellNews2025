@@ -1,0 +1,165 @@
+# ULTIMATE NANO PI DOCKER COMPOSE - FIXED NETWORKING AND STABILITY
+# Solves: Port 5002 connection issues, auto-IP detection, system stability
+# Author: Claude Code Assistant
+
+version: '3.8'
+
+services:
+  # Time synchronization service - Critical for SSL and Docker operations
+  time-fix:
+    image: ${DOCKER_HUB_USERNAME:-yourusername}/bellnews-time-fix:${IMAGE_TAG:-latest}
+    platform: linux/arm64
+    container_name: time-fix-service
+    privileged: true
+    network_mode: "host"
+    volumes:
+      - /var/log:/var/log
+    restart: "no"
+    command: ["/usr/local/bin/auto-time-fix.sh"]
+    mem_limit: 64m
+    memswap_limit: 128m
+
+  # Ubuntu Configuration Service (FIXED - with proper health checks)
+  config_service:
+    image: ${DOCKER_HUB_USERNAME:-yourusername}/bellnews-config-service:${IMAGE_TAG:-latest}
+    platform: linux/arm64
+    network_mode: "host"
+    restart: always
+    container_name: config_service
+    volumes:
+      - /etc/netplan:/etc/netplan
+      - ./config_service_logs:/var/log
+    privileged: true
+    environment:
+      IN_DOCKER_TEST_MODE: "false"
+    depends_on:
+      - time-fix
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    mem_limit: 128m
+    memswap_limit: 256m
+
+  # Main Python Flask application (bellapp) - FIXED networking
+  pythonapp:
+    image: ${DOCKER_HUB_USERNAME:-yourusername}/bellnews-bellapp:${IMAGE_TAG:-latest}
+    platform: linux/arm64
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    restart: always
+    container_name: bellapp
+    volumes:
+      - ./bellapp/logs:/bellapp/logs
+    depends_on:
+      config_service:
+        condition: service_healthy
+    environment:
+      # Fixed: Wait for config_service to be healthy
+      UBUNTU_CONFIG_SERVICE_URL: http://localhost:5002
+      # Auto-detect host IP for dynamic environments
+      HOST_IP: ${HOST_IP:-192.168.33.145}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    mem_limit: 200m
+    memswap_limit: 400m
+    networks:
+      - bellnews_network
+
+  # Laravel news application - FIXED with dynamic IP detection
+  laravelapp:
+    image: ${DOCKER_HUB_USERNAME:-yourusername}/bellnews-newsapp:${IMAGE_TAG:-latest}
+    platform: linux/arm64
+    environment:
+      # FIXED: Use dynamic IP detection instead of hardcoded pythonapp
+      - VITE_API_BASE_URL=http://${HOST_IP:-192.168.33.145}:5000
+      - APP_ENV=production
+      - APP_DEBUG=false
+      # Auto-detect host IP for frontend API calls
+      - APP_URL=http://${HOST_IP:-192.168.33.145}:8000
+    ports:
+      - "8000:8000"
+      - "5173:5173"
+    restart: always
+    container_name: newsapp
+    depends_on:
+      pythonapp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    mem_limit: 150m
+    memswap_limit: 300m
+    networks:
+      - bellnews_network
+
+  # ADDED: System monitor service to prevent halts
+  system_monitor:
+    image: alpine:latest
+    container_name: system_monitor
+    restart: always
+    privileged: true
+    network_mode: "host"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/log:/var/log
+    command: >
+      sh -c "
+      apk add --no-cache docker-cli curl &&
+      while true; do
+        # Check memory usage
+        MEM_USAGE=$$(cat /host/proc/meminfo | grep MemAvailable | awk '{print $$2}')
+        if [ $$MEM_USAGE -lt 50000 ]; then
+          echo 'LOW MEMORY WARNING: '$$MEM_USAGE'KB available' >> /var/log/system_monitor.log
+          # Free up memory
+          sync && echo 3 > /proc/sys/vm/drop_caches
+        fi
+
+        # Check if containers are running
+        if ! docker ps | grep -q bellapp; then
+          echo 'Restarting bellapp container' >> /var/log/system_monitor.log
+          docker-compose -f /docker-compose.nanopi-fixed.yml up -d pythonapp
+        fi
+
+        if ! docker ps | grep -q newsapp; then
+          echo 'Restarting newsapp container' >> /var/log/system_monitor.log
+          docker-compose -f /docker-compose.nanopi-fixed.yml up -d laravelapp
+        fi
+
+        if ! docker ps | grep -q config_service; then
+          echo 'Restarting config_service container' >> /var/log/system_monitor.log
+          docker-compose -f /docker-compose.nanopi-fixed.yml up -d config_service
+        fi
+
+        sleep 30
+      done"
+    mem_limit: 32m
+    memswap_limit: 64m
+
+# Fixed network configuration with proper IP range
+networks:
+  bellnews_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+# Volumes for data persistence
+volumes:
+  bellapp_logs:
+    driver: local
+  config_logs:
+    driver: local

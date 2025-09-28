@@ -27,7 +27,8 @@
       "Bash(export DOCKER_DEFAULT_PLATFORM=linux/arm64)",
       "Bash(docker compose:*)",
       "Bash(docker ps:*)",
-      "Bash(docker build:*)"
+      "Bash(docker build:*)",
+      "Bash(docker:*)"
     ],
     "deny": [],
     "ask": []
