@@ -62,10 +62,23 @@ if ! command_exists nc; then
     sudo apt install -y netcat-openbsd
 fi
 
-# Install netplan if not present (required for IP switching)
-if ! command_exists netplan; then
-    echo "[INFO] Installing netplan for network management..."
-    sudo apt install -y netplan.io
+# Check network management system (netplan vs ifupdown)
+if command_exists netplan; then
+    echo "[INFO] Netplan detected for network management"
+    NETWORK_MANAGER="netplan"
+elif [ -f "/etc/network/interfaces" ]; then
+    echo "[INFO] Using traditional /etc/network/interfaces for network management"
+    NETWORK_MANAGER="interfaces"
+    # Install network tools if missing
+    if ! command_exists ifconfig; then
+        echo "[INFO] Installing network tools..."
+        sudo apt install -y net-tools ifupdown
+    fi
+else
+    echo "[WARNING] No recognized network management system found"
+    echo "[INFO] Will attempt to use basic network tools"
+    NETWORK_MANAGER="basic"
+    sudo apt install -y net-tools || true
 fi
 
 echo "[SUCCESS] System dependencies verified"
@@ -106,6 +119,7 @@ if port_available 5002; then
 
         # Set environment for real operations (not test mode)
         export IN_DOCKER_TEST_MODE=false
+        export NETWORK_MANAGER="$NETWORK_MANAGER"
 
         # Start config service in background with proper logging
         nohup sudo -E python3 "$CONFIG_SERVICE_PATH" > config_service.log 2>&1 &
@@ -136,6 +150,7 @@ UBUNTU_CONFIG_SERVICE_URL=http://localhost:5002
 FLASK_ENV=production
 FLASK_DEBUG=false
 IN_DOCKER_TEST_MODE=false
+NETWORK_MANAGER=$NETWORK_MANAGER
 EOF
 
 echo "[SUCCESS] Environment configured"
