@@ -1,7 +1,9 @@
 # 🚀 Nano Pi Deployment Instructions
 
-## 🔧 ARCHITECTURE FIX
-**IMPORTANT**: The `exec format error` was caused by platform conflicts. All `--platform=linux/arm64` specifications have been removed to let Docker auto-detect ARM64.
+## 🔧 CRITICAL FIXES APPLIED
+1. **ARCHITECTURE FIX**: Removed `--platform=linux/arm64` to let Docker auto-detect ARM64
+2. **MEMORY OPTIMIZATION**: Created ultra-lightweight Dockerfile for low-memory Nano Pi
+3. **APT CACHE FIX**: Configured APT memory limits to prevent allocation errors
 
 ## Quick Commands for Nano Pi
 
@@ -36,11 +38,14 @@ sleep 5
 
 ### 3. Build and Run
 ```bash
-# Option A: Use the ultimate fix script
+# RECOMMENDED: Use the memory-optimized script
+sudo bash NANO-PI-MEMORY-FIX.sh
+
+# Alternative: Use the ultimate fix (may use more memory)
 sudo bash ULTIMATE-NANO-PI-FIX.sh
 
-# Option B: Manual build (if script has issues)
-sudo docker-compose -f docker-compose.prod.yml build --no-cache
+# Manual build (if scripts have issues)
+sudo docker-compose -f docker-compose.prod.yml build --memory=400m --no-cache
 sudo docker-compose -f docker-compose.prod.yml up -d
 ```
 
