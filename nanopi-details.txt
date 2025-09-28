@@ -1,0 +1,73 @@
+root@NanoPi-NEO:~/BellNews2025# echo "=== HOST & KERNEL ==="; hostnamectl; uname -a; echo; \
+> echo "=== CPU INFO ==="; lscpu; echo; \
+> echo "=== MEMORY INFO ==="; free -h; echo; \
+> echo "=== STORAGE INFO ==="; df -h; lsblk; echo; \
+> echo "=== BOARD INFO ==="; cat /proc/device-tree/model 2>/dev/null; echo; \
+> echo "=== CPU DETAILS ==="; cat /proc/cpuinfo | grep -m 10 "" ; echo; \
+> echo "=== NETWORK INFO ==="; ip -brief a; echo; \
+> echo "=== UPTIME ==="; uptime
+=== HOST & KERNEL ===
+   Static hostname: NanoPi-NEO
+         Icon name: computer
+        Machine ID: babb6c5f23fe45fc86696504cbbc02d1
+           Boot ID: ca87b504c7f84c32823f91092c57501b
+  Operating System: Ubuntu 16.04.2 LTS
+            Kernel: Linux 4.14.52
+      Architecture: arm
+Linux NanoPi-NEO 4.14.52 #93 SMP Thu Jun 28 17:46:52 CST 2018 armv7l armv7l armv7l GNU/Linux
+
+=== CPU INFO ===
+Architecture:          armv7l
+Byte Order:            Little Endian
+CPU(s):                4
+On-line CPU(s) list:   0-3
+Thread(s) per core:    1
+Core(s) per socket:    4
+Socket(s):             1
+Model name:            ARMv7 Processor rev 5 (v7l)
+CPU max MHz:           1008.0000
+CPU min MHz:           120.0000
+
+=== MEMORY INFO ===
+              total        used        free      shared  buff/cache   available
+Mem:           491M         89M        130M        9.5M        272M        319M
+Swap:          511M         67M        444M
+
+=== STORAGE INFO ===
+Filesystem      Size  Used Avail Use% Mounted on
+udev            211M     0  211M   0% /dev
+tmpfs            50M  6.0M   44M  13% /run
+/dev/mmcblk0p2   30G  5.3G   24G  18% /
+tmpfs           246M  4.0K  246M   1% /dev/shm
+tmpfs           5.0M  4.0K  5.0M   1% /run/lock
+tmpfs           246M     0  246M   0% /sys/fs/cgroup
+/dev/mmcblk0p1   40M  8.5M   32M  22% /boot
+tmpfs            50M     0   50M   0% /run/user/1000
+tmpfs            50M     0   50M   0% /run/user/0
+NAME        MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+mmcblk0     179:0    0 29.7G  0 disk
+├─mmcblk0p2 179:2    0 29.7G  0 part /
+└─mmcblk0p1 179:1    0   40M  0 part /boot
+
+=== BOARD INFO ===
+FriendlyElec NanoPi-NEO
+=== CPU DETAILS ===
+processor       : 0
+model name      : ARMv7 Processor rev 5 (v7l)
+BogoMIPS        : 29.71
+Features        : half thumb fastmult vfp edsp neon vfpv3 tls vfpv4 idiva idivt vfpd32 lpae evtstrm
+CPU implementer : 0x41
+CPU architecture: 7
+CPU variant     : 0x0
+CPU part        : 0xc07
+CPU revision    : 5
+
+
+=== NETWORK INFO ===
+lo               UNKNOWN        127.0.0.1/8 ::1/128
+eth0             UP             192.168.33.145/24 2a06:c701:9fd6:4f00:81:bcff:fe3e:1f19/64 2a06:c701:9fe0:9400:81:bcff:fe3e:1f19/64 fe80::81:bcff:fe3e:1f19/64
+docker0          DOWN           172.17.0.1/16 fe80::42:98ff:feb0:8146/64
+
+=== UPTIME ===
+ 21:44:58 up  6:59,  3 users,  load average: 0.83, 1.04, 1.26
+root@NanoPi-NEO:~/BellNews2025#

@@ -1,7 +1,7 @@
-# Use a specific tag to ensure we get the right version
-FROM python:3.12.8-slim-bookworm
+# ---------- BUILDER ----------
+FROM python:3.12.8-slim-bookworm AS builder
 
-# Install all build deps in one layer and clean manually
+# Install build tools (removed in final image)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         gcc \
@@ -17,28 +17,43 @@ RUN apt-get update \
         libsndfile1 \
         pkg-config \
         libffi-dev \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*
+    && rm -rf /var/lib/apt/lists/*
 
-# Verify Python
-RUN python3 --version && which python3
+WORKDIR /app
+
+# Create venv
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir -r requirements.txt
+
+
+# ---------- RUNTIME ----------
+FROM python:3.12.8-slim-bookworm
+
+# Runtime deps only (no compilers, no build-essential)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libasound2 \
+        alsa-utils \
+        portaudio19-dev \
+        libsndfile1 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /bellapp
 
-# Copy and install requirements in a virtual environment
-COPY requirements.txt .
-RUN python3 -m venv venv
-RUN venv/bin/pip install --upgrade pip setuptools wheel
-RUN venv/bin/pip install --no-cache-dir -v -r requirements.txt
+# Copy venv from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy application code
+# Copy app code
 COPY . .
-
-# Optional: remove build deps to slim image (uncomment if needed)
-# RUN apt-get purge -y gcc g++ python3-dev build-essential libc6-dev make pkg-config libffi-dev \
-#     && apt-get autoremove -y \
-#     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*
 
 EXPOSE 5000 5001
 ENV PYTHONUNBUFFERED=1
 ENV IN_DOCKER=1
-CMD ["venv/bin/python3", "launch_vcns_timer.py"]
+
+CMD ["python", "launch_vcns_timer.py"]
