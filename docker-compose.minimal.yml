@@ -1,0 +1,51 @@
+# Minimal docker-compose for testing
+version: '3.8'
+
+services:
+  # Main Python Flask web application (bellapp)
+  pythonapp:
+    build: ./bellapp
+    ports:
+      - "5000:5000"
+    restart: always
+    container_name: bellapp
+    volumes:
+      - ./bellapp/logs:/bellapp/logs
+    depends_on:
+      - config_service
+    environment:
+      UBUNTU_CONFIG_SERVICE_URL: http://localhost:5002
+
+  # Ubuntu Configuration Service
+  config_service:
+    build:
+      context: .
+      dockerfile: Dockerfile_config
+    network_mode: "host"
+    restart: always
+    container_name: config_service
+    volumes:
+      - /etc/netplan:/etc/netplan
+      - ./config_service_logs:/var/log
+    privileged: true
+    environment:
+      IN_DOCKER_TEST_MODE: "false"
+
+  # Simple Laravel app without Vite build
+  laravelapp:
+    image: php:8.2-apache
+    ports:
+      - "8000:80"
+    restart: always
+    container_name: newsapp_simple
+    volumes:
+      - ./newsapp:/var/www/html
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html/public
+    command: >
+      bash -c "
+        a2enmod rewrite &&
+        echo 'ServerName localhost' >> /etc/apache2/apache2.conf &&
+        sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf &&
+        apache2-foreground
+      "

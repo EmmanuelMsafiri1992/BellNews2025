@@ -1,0 +1,51 @@
+# Dockerfile for the Ubuntu Configuration Service (ubuntu_config_service.py)
+
+# Use a stable Python base image (Bullseye instead of Trixie to avoid signature issues)
+FROM python:3.9-slim-bullseye
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Set environment to avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies and essential utilities
+# Removed ntpsec, ntpsec-ntpdate, and systemd which were causing signature verification issues
+RUN apt-get update && apt-get install -y \
+    gcc \
+    python3-dev \
+    build-essential \
+    libc6-dev \
+    make \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pyyaml for Netplan YAML generation (needed even in mock mode for structure)
+RUN pip install --no-cache-dir pyyaml
+
+# Copy the application code and requirements
+COPY ubuntu_config_service.py .
+COPY requirements.txt .
+
+# Install other Python dependencies from requirements.txt
+# (Flask, requests, psutil, etc. if they are in there)
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Clean up build dependencies after installation to reduce image size
+RUN apt-get update && apt-get purge -y \
+    gcc \
+    python3-dev \
+    build-essential \
+    libc6-dev \
+    make \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Expose the port the Flask app will run on
+EXPOSE 5002
+
+# Set environment variable for unbuffered Python output
+ENV PYTHONUNBUFFERED=1
+
+# Command to run the Flask application
+CMD ["python", "-u", "ubuntu_config_service.py"]

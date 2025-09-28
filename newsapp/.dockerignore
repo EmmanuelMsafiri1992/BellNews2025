@@ -1,0 +1,48 @@
+# Node modules - will be installed in container
+node_modules
+npm-debug.log*
+package-lock.json
+
+# Build outputs
+public/build
+public/hot
+
+# Large vendor files
+vendor/*/tests
+vendor/*/test
+vendor/*/docs
+vendor/*/*/tests
+vendor/*/*/test
+vendor/*/*/docs
+
+# Development files
+.env.development.local
+.git
+.gitignore
+README.md
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Laravel specific
+storage/app/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
+storage/logs/*
+
+# Testing
+coverage
+*.log
+
+# Temporary files
+*.tmp
+*.temp

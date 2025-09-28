@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TV Browser Compatibility Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-section h2 {
+            color: #007bff;
+            margin-top: 0;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.pass {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.fail {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .test-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px;
+            min-width: 150px;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        .test-button:focus {
+            outline: 3px solid #ffc107;
+            outline-offset: 2px;
+        }
+        #results {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TV Browser Compatibility Test</h1>
+        
+        <div class="test-section">
+            <h2>Browser Detection</h2>
+            <div id="browser-info"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>JavaScript Features Test</h2>
+            <button class="test-button" onclick="testJavaScriptFeatures()">Test JavaScript</button>
+            <div id="js-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Network Test</h2>
+            <button class="test-button" onclick="testNetworkFeatures()">Test Network</button>
+            <div id="network-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>CSS Support Test</h2>
+            <button class="test-button" onclick="testCSSFeatures()">Test CSS</button>
+            <div id="css-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>TV Remote Test</h2>
+            <p>Press arrow keys, Enter, or TV remote buttons to test navigation:</p>
+            <button class="test-button focusable" onclick="logMessage('Button 1 clicked')">Button 1</button>
+            <button class="test-button focusable" onclick="logMessage('Button 2 clicked')">Button 2</button>
+            <button class="test-button focusable" onclick="logMessage('Button 3 clicked')">Button 3</button>
+            <div id="remote-results"></div>
+        </div>
+        
+        <div id="results">
+            <h2>Test Results</h2>
+            <div id="output"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize test results
+        let testResults = [];
+        
+        function logMessage(message) {
+            console.log(message);
+            const output = document.getElementById('output');
+            output.innerHTML += '<div class="status info">' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+        }
+        
+        function addResult(test, status, details) {
+            testResults.push({test, status, details});
+            const resultDiv = document.getElementById(test + '-results');
+            const statusClass = status ? 'pass' : 'fail';
+            const statusText = status ? 'PASS' : 'FAIL';
+            if (resultDiv) {
+                resultDiv.innerHTML += `<div class="status ${statusClass}">${statusText}: ${details}</div>`;
+            }
+            logMessage(`${test}: ${statusText} - ${details}`);
+        }
+        
+        // Browser Detection
+        function detectBrowser() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const browserInfo = {
+                userAgent: navigator.userAgent,
+                isTizen: userAgent.includes('tizen') || userAgent.includes('samsung'),
+                isWebOS: userAgent.includes('webos') || userAgent.includes('lg'),
+                isTV: userAgent.includes('tv'),
+                screenSize: screen.width + 'x' + screen.height,
+                isLargeScreen: screen.width >= 1920 && screen.height >= 1080
+            };
+            
+            let browserType = 'Unknown';
+            if (browserInfo.isTizen) browserType = 'Samsung Tizen TV';
+            else if (browserInfo.isWebOS) browserType = 'LG WebOS TV';
+            else if (browserInfo.isTV) browserType = 'Generic TV Browser';
+            else if (browserInfo.isLargeScreen) browserType = 'Large Screen Device';
+            else browserType = 'Standard Browser';
+            
+            document.getElementById('browser-info').innerHTML = `
+                <div class="status info">Browser Type: ${browserType}</div>
+                <div class="status info">Screen Size: ${browserInfo.screenSize}</div>
+                <div class="status info">User Agent: ${browserInfo.userAgent}</div>
+            `;
+            
+            return browserInfo;
+        }
+        
+        // JavaScript Features Test
+        function testJavaScriptFeatures() {
+            const tests = [
+                {
+                    name: 'Fetch API',
+                    test: () => typeof fetch !== 'undefined'
+                },
+                {
+                    name: 'Promise',
+                    test: () => typeof Promise !== 'undefined'
+                },
+                {
+                    name: 'Array.includes',
+                    test: () => typeof Array.prototype.includes === 'function'
+                },
+                {
+                    name: 'Array.find',
+                    test: () => typeof Array.prototype.find === 'function'
+                },
+                {
+                    name: 'Object.assign',
+                    test: () => typeof Object.assign === 'function'
+                },
+                {
+                    name: 'String.includes',
+                    test: () => typeof String.prototype.includes === 'function'
+                },
+                {
+                    name: 'localStorage',
+                    test: () => {
+                        try {
+                            localStorage.setItem('test', 'test');
+                            localStorage.removeItem('test');
+                            return true;
+                        } catch (e) {
+                            return false;
+                        }
+                    }
+                },
+                {
+                    name: 'JSON',
+                    test: () => typeof JSON !== 'undefined' && typeof JSON.parse === 'function'
+                },
+                {
+                    name: 'setTimeout',
+                    test: () => typeof setTimeout === 'function'
+                },
+                {
+                    name: 'Console',
+                    test: () => typeof console !== 'undefined' && typeof console.log === 'function'
+                }
+            ];
+            
+            document.getElementById('js-results').innerHTML = '';
+            tests.forEach(test => {
+                try {
+                    const result = test.test();
+                    addResult('js', result, test.name);
+                } catch (e) {
+                    addResult('js', false, test.name + ' - Error: ' + e.message);
+                }
+            });
+        }
+        
+        // Network Features Test
+        function testNetworkFeatures() {
+            document.getElementById('network-results').innerHTML = '';
+            
+            // Test basic connectivity
+            if (typeof fetch !== 'undefined') {
+                // Test fetch to same origin
+                fetch(window.location.origin + '/api/news')
+                    .then(response => {
+                        addResult('network', true, 'Fetch API works - Status: ' + response.status);
+                        return response.json();
+                    })
+                    .then(data => {
+                        addResult('network', true, 'JSON parsing works');
+                    })
+                    .catch(error => {
+                        addResult('network', false, 'Fetch failed: ' + error.message);
+                        
+                        // Fallback to XMLHttpRequest
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('GET', window.location.origin + '/api/news', true);
+                        xhr.onload = function() {
+                            if (xhr.status === 200) {
+                                addResult('network', true, 'XMLHttpRequest fallback works');
+                            } else {
+                                addResult('network', false, 'XMLHttpRequest failed with status: ' + xhr.status);
+                            }
+                        };
+                        xhr.onerror = function() {
+                            addResult('network', false, 'XMLHttpRequest error');
+                        };
+                        xhr.send();
+                    });
+            } else {
+                addResult('network', false, 'Fetch API not available');
+            }
+        }
+        
+        // CSS Features Test
+        function testCSSFeatures() {
+            document.getElementById('css-results').innerHTML = '';
+            
+            const testElement = document.createElement('div');
+            document.body.appendChild(testElement);
+            
+            const tests = [
+                {
+                    name: 'Flexbox',
+                    test: () => {
+                        testElement.style.display = 'flex';
+                        return testElement.style.display === 'flex';
+                    }
+                },
+                {
+                    name: 'CSS Grid',
+                    test: () => {
+                        testElement.style.display = 'grid';
+                        return testElement.style.display === 'grid';
+                    }
+                },
+                {
+                    name: 'Transform',
+                    test: () => {
+                        testElement.style.transform = 'translateX(10px)';
+                        return testElement.style.transform !== '';
+                    }
+                },
+                {
+                    name: 'Transition',
+                    test: () => {
+                        testElement.style.transition = 'all 0.3s ease';
+                        return testElement.style.transition !== '';
+                    }
+                },
+                {
+                    name: 'Border Radius',
+                    test: () => {
+                        testElement.style.borderRadius = '10px';
+                        return testElement.style.borderRadius !== '';
+                    }
+                },
+                {
+                    name: 'Box Shadow',
+                    test: () => {
+                        testElement.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                        return testElement.style.boxShadow !== '';
+                    }
+                }
+            ];
+            
+            tests.forEach(test => {
+                try {
+                    const result = test.test();
+                    addResult('css', result, test.name);
+                } catch (e) {
+                    addResult('css', false, test.name + ' - Error: ' + e.message);
+                }
+            });
+            
+            document.body.removeChild(testElement);
+        }
+        
+        // TV Remote Navigation Test
+        let keyPressCount = 0;
+        document.addEventListener('keydown', function(e) {
+            keyPressCount++;
+            let keyName = 'Unknown';
+            
+            switch(e.keyCode) {
+                case 37: keyName = 'Left Arrow'; break;
+                case 38: keyName = 'Up Arrow'; break;
+                case 39: keyName = 'Right Arrow'; break;
+                case 40: keyName = 'Down Arrow'; break;
+                case 13: keyName = 'Enter'; break;
+                case 27: keyName = 'Escape'; break;
+                case 10009: keyName = 'Samsung Return'; break;
+                case 461: keyName = 'LG Return'; break;
+                case 415: keyName = 'Play Button'; break;
+                default: keyName = `Key ${e.keyCode}`;
+            }
+            
+            const message = `Key pressed: ${keyName} (${e.keyCode}) - Count: ${keyPressCount}`;
+            logMessage(message);
+            
+            const remoteResults = document.getElementById('remote-results');
+            remoteResults.innerHTML = `<div class="status pass">Last key: ${keyName}</div>`;
+        });
+        
+        // Initialize tests on load
+        window.addEventListener('load', function() {
+            detectBrowser();
+            logMessage('TV Browser Compatibility Test loaded');
+        });
+        
+        // Auto-run basic tests after 2 seconds
+        setTimeout(function() {
+            testJavaScriptFeatures();
+        }, 2000);
+    </script>
+</body>
+</html>

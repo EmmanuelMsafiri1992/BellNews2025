@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Detection Test for TV Browsers</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .test-section h2 {
+            color: #007bff;
+            margin-top: 0;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.pass {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.fail {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .status.warn {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .test-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px;
+            min-width: 150px;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        .test-button:focus {
+            outline: 3px solid #ffc107;
+            outline-offset: 2px;
+        }
+        .ip-display {
+            font-family: monospace;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            font-size: 16px;
+            white-space: pre-wrap;
+        }
+        .log-area {
+            background-color: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dynamic IP Detection Test</h1>
+        
+        <div class="test-section">
+            <h2>Current Network Information</h2>
+            <div id="current-info" class="ip-display">Loading...</div>
+            <button class="test-button" onclick="refreshCurrentInfo()">Refresh Info</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>IP Manager Status</h2>
+            <div id="ip-manager-status" class="status info">Initializing...</div>
+            <div id="detected-ip" class="ip-display">No IP detected yet</div>
+            <button class="test-button" onclick="triggerIPDetection()">Detect IP Now</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Network Recovery Status</h2>
+            <div id="recovery-status" class="status info">Initializing...</div>
+            <button class="test-button" onclick="testRecovery()">Test Recovery</button>
+            <button class="test-button" onclick="simulateFailure()">Simulate Failure</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>API Connectivity Test</h2>
+            <div id="api-status" class="status info">Ready to test</div>
+            <button class="test-button" onclick="testAPIs()">Test All APIs</button>
+            <div id="api-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Real-time Log</h2>
+            <div id="log-area" class="log-area">IP Detection System Log:\n</div>
+            <button class="test-button" onclick="clearLog()">Clear Log</button>
+            <button class="test-button" onclick="enableDebug()">Enable Debug</button>
+        </div>
+    </div>
+
+    <script>
+        // Global logging function
+        function log(message) {
+            var timestamp = new Date().toLocaleTimeString();
+            var logArea = document.getElementById('log-area');
+            logArea.textContent += '[' + timestamp + '] ' + message + '\n';
+            logArea.scrollTop = logArea.scrollHeight;
+            console.log('[IP Test] ' + message);
+        }
+        
+        // Show current network information
+        function refreshCurrentInfo() {
+            var info = {
+                hostname: window.location.hostname,
+                port: window.location.port || '8000',
+                protocol: window.location.protocol,
+                userAgent: navigator.userAgent.slice(0, 100) + '...',
+                screenSize: screen.width + 'x' + screen.height
+            };
+            
+            document.getElementById('current-info').textContent = JSON.stringify(info, null, 2);
+            log('Current info refreshed');
+        }
+        
+        // Update IP Manager status
+        function updateIPManagerStatus() {
+            var statusDiv = document.getElementById('ip-manager-status');
+            var ipDiv = document.getElementById('detected-ip');
+            
+            if (window.IPManager) {
+                var currentIP = window.IPManager.getCurrentHost();
+                var currentPort = window.IPManager.currentPort || 'Unknown';
+                var baseURL = window.IPManager.getBaseURL();
+                var isDetecting = window.IPManager.isDetecting;
+                
+                if (currentIP && currentIP !== 'localhost') {
+                    statusDiv.className = 'status pass';
+                    statusDiv.textContent = 'IP Manager: Active - ' + (isDetecting ? 'Detecting...' : 'Ready');
+                    
+                    ipDiv.textContent = JSON.stringify({
+                        detectedIP: currentIP,
+                        port: currentPort,
+                        baseURL: baseURL,
+                        isDetecting: isDetecting
+                    }, null, 2);
+                } else {
+                    statusDiv.className = 'status warn';
+                    statusDiv.textContent = 'IP Manager: No valid IP detected';
+                    ipDiv.textContent = 'Still detecting or using fallback...';
+                }
+            } else {
+                statusDiv.className = 'status fail';
+                statusDiv.textContent = 'IP Manager: Not available';
+                ipDiv.textContent = 'IP Manager system not loaded';
+            }
+        }
+        
+        // Update Network Recovery status
+        function updateRecoveryStatus() {
+            var statusDiv = document.getElementById('recovery-status');
+            
+            if (window.NetworkRecovery) {
+                var status = window.NetworkRecovery.getStatus();
+                var className = 'status ';
+                
+                switch(status.status) {
+                    case 'connected':
+                        className += 'pass';
+                        break;
+                    case 'recovering':
+                        className += 'warn';
+                        break;
+                    case 'disconnected':
+                        className += 'fail';
+                        break;
+                    default:
+                        className += 'info';
+                }
+                
+                statusDiv.className = className;
+                statusDiv.textContent = 'Network Recovery: ' + status.status + 
+                    (status.isRecovering ? ' (Attempt ' + status.retryCount + ')' : '');
+            } else {
+                statusDiv.className = 'status fail';
+                statusDiv.textContent = 'Network Recovery: Not available';
+            }
+        }
+        
+        // Trigger IP detection
+        function triggerIPDetection() {
+            if (window.IPManager) {
+                log('Triggering IP detection...');
+                window.IPManager.detectCurrentIP();
+                setTimeout(updateIPManagerStatus, 2000);
+            } else {
+                log('ERROR: IP Manager not available');
+            }
+        }
+        
+        // Test network recovery
+        function testRecovery() {
+            if (window.NetworkRecovery) {
+                log('Testing network recovery...');
+                window.NetworkRecovery.recover();
+            } else {
+                log('ERROR: Network Recovery not available');
+            }
+        }
+        
+        // Simulate network failure
+        function simulateFailure() {
+            if (window.NetworkRecovery) {
+                log('Simulating network failure...');
+                window.NetworkRecovery.startRecovery('Simulated failure for testing');
+            } else {
+                log('ERROR: Network Recovery not available');
+            }
+        }
+        
+        // Test API endpoints
+        function testAPIs() {
+            var statusDiv = document.getElementById('api-status');
+            var resultsDiv = document.getElementById('api-results');
+            
+            statusDiv.className = 'status warn';
+            statusDiv.textContent = 'Testing APIs...';
+            resultsDiv.innerHTML = '';
+            
+            var baseURL = window.IPManager ? window.IPManager.getBaseURL() : 'http://' + window.location.hostname + ':8000';
+            var endpoints = [
+                { name: 'Health Check', url: baseURL + '/api/health' },
+                { name: 'Ping', url: baseURL + '/api/ping' },
+                { name: 'Network Info', url: baseURL + '/api/network-info' },
+                { name: 'Settings', url: baseURL + '/api/settings' },
+                { name: 'News', url: baseURL + '/api/news' }
+            ];
+            
+            log('Testing APIs with base URL: ' + baseURL);
+            
+            var testPromises = endpoints.map(function(endpoint) {
+                return testEndpoint(endpoint.name, endpoint.url);
+            });
+            
+            Promise.all(testPromises).then(function(results) {
+                var successful = results.filter(function(r) { return r.success; }).length;
+                var total = results.length;
+                
+                if (successful === total) {
+                    statusDiv.className = 'status pass';
+                    statusDiv.textContent = 'All APIs working (' + successful + '/' + total + ')';
+                } else if (successful > 0) {
+                    statusDiv.className = 'status warn';
+                    statusDiv.textContent = 'Some APIs working (' + successful + '/' + total + ')';
+                } else {
+                    statusDiv.className = 'status fail';
+                    statusDiv.textContent = 'No APIs responding (' + successful + '/' + total + ')';
+                }
+                
+                log('API test completed: ' + successful + '/' + total + ' successful');
+            });
+        }
+        
+        // Test individual endpoint
+        function testEndpoint(name, url) {
+            return new Promise(function(resolve) {
+                var resultsDiv = document.getElementById('api-results');
+                var startTime = Date.now();
+                
+                var timeout = setTimeout(function() {
+                    var duration = Date.now() - startTime;
+                    resultsDiv.innerHTML += '<div class="status fail">' + name + ': Timeout (' + duration + 'ms)</div>';
+                    log('API test failed - ' + name + ': Timeout after ' + duration + 'ms');
+                    resolve({ success: false, error: 'Timeout' });
+                }, 10000);
+                
+                fetch(url, { method: 'GET' })
+                    .then(function(response) {
+                        clearTimeout(timeout);
+                        var duration = Date.now() - startTime;
+                        
+                        if (response.ok) {
+                            resultsDiv.innerHTML += '<div class="status pass">' + name + ': OK (' + response.status + ', ' + duration + 'ms)</div>';
+                            log('API test passed - ' + name + ': ' + response.status + ' in ' + duration + 'ms');
+                            resolve({ success: true, status: response.status });
+                        } else {
+                            resultsDiv.innerHTML += '<div class="status warn">' + name + ': HTTP ' + response.status + ' (' + duration + 'ms)</div>';
+                            log('API test warning - ' + name + ': HTTP ' + response.status + ' in ' + duration + 'ms');
+                            resolve({ success: false, status: response.status });
+                        }
+                    })
+                    .catch(function(error) {
+                        clearTimeout(timeout);
+                        var duration = Date.now() - startTime;
+                        resultsDiv.innerHTML += '<div class="status fail">' + name + ': ' + error.message + ' (' + duration + 'ms)</div>';
+                        log('API test failed - ' + name + ': ' + error.message + ' after ' + duration + 'ms');
+                        resolve({ success: false, error: error.message });
+                    });
+            });
+        }
+        
+        // Clear log
+        function clearLog() {
+            document.getElementById('log-area').textContent = 'IP Detection System Log:\n';
+            log('Log cleared');
+        }
+        
+        // Enable debug mode
+        function enableDebug() {
+            window.IP_DEBUG = true;
+            window.NETWORK_DEBUG = true;
+            log('Debug mode enabled');
+        }
+        
+        // Update status periodically
+        function updateStatus() {
+            updateIPManagerStatus();
+            updateRecoveryStatus();
+        }
+        
+        // Initialize page
+        window.addEventListener('load', function() {
+            log('IP Detection Test page loaded');
+            refreshCurrentInfo();
+            
+            // Set up listeners for IP Manager
+            if (window.IPManager) {
+                window.IPManager.onIPChange(function(host, port, baseURL) {
+                    log('IP CHANGED: ' + host + ':' + port + ' -> ' + baseURL);
+                    updateIPManagerStatus();
+                });
+            }
+            
+            // Set up listeners for Network Recovery
+            if (window.NetworkRecovery) {
+                window.NetworkRecovery.onRecovery(function(event, reason) {
+                    log('NETWORK RECOVERY: ' + event + (reason ? ' (' + reason + ')' : ''));
+                    updateRecoveryStatus();
+                });
+            }
+            
+            // Update status every 5 seconds
+            setInterval(updateStatus, 5000);
+            
+            // Initial status update
+            setTimeout(updateStatus, 1000);
+        });
+        
+        // Log initial browser information
+        setTimeout(function() {
+            log('Browser: ' + navigator.userAgent);
+            log('Screen: ' + screen.width + 'x' + screen.height);
+            log('Location: ' + window.location.href);
+        }, 100);
+    </script>
+</body>
+</html>

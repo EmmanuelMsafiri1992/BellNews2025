@@ -1,0 +1,100 @@
+# Docker Compose file optimized for Nano Pi deployment
+# Uses pre-built multi-architecture images from Docker Hub
+# No building required - just pull and run!
+
+version: '3.8'
+
+services:
+  # Time synchronization service - Critical for SSL and Docker operations
+  time-fix:
+    image: ${DOCKER_HUB_USERNAME:-yourusername}/bellnews-time-fix:${IMAGE_TAG:-latest}
+    platform: linux/arm64  # Force ARM64 for Nano Pi
+    container_name: time-fix-service
+    privileged: true
+    network_mode: "host"
+    volumes:
+      - /var/log:/var/log
+    restart: "no"  # Run once on startup
+    command: ["/usr/local/bin/auto-time-fix.sh"]
+
+  # Ubuntu Configuration Service (with host network access)
+  config_service:
+    image: ${DOCKER_HUB_USERNAME:-yourusername}/bellnews-config-service:${IMAGE_TAG:-latest}
+    platform: linux/arm64
+    network_mode: "host"  # Direct host network access for netplan
+    restart: always
+    container_name: config_service
+    volumes:
+      # Mount host's /etc/netplan for network configuration
+      - /etc/netplan:/etc/netplan
+      # Mount log directory
+      - ./config_service_logs:/var/log
+    privileged: true  # Required for netplan apply
+    environment:
+      IN_DOCKER_TEST_MODE: "false"
+    depends_on:
+      - time-fix
+
+  # Main Python Flask application (bellapp)
+  pythonapp:
+    image: ${DOCKER_HUB_USERNAME:-yourusername}/bellnews-bellapp:${IMAGE_TAG:-latest}
+    platform: linux/arm64
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    restart: always
+    container_name: bellapp
+    volumes:
+      # Mount logs directory for persistence
+      - ./bellapp/logs:/bellapp/logs
+    depends_on:
+      - time-fix
+      - config_service
+    environment:
+      # Config service accessible via localhost due to host networking
+      UBUNTU_CONFIG_SERVICE_URL: http://localhost:5002
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Laravel news application
+  laravelapp:
+    image: ${DOCKER_HUB_USERNAME:-yourusername}/bellnews-newsapp:${IMAGE_TAG:-latest}
+    platform: linux/arm64
+    environment:
+      # API connection to Python app within Docker network
+      - VITE_API_BASE_URL=http://pythonapp:5000
+      - APP_ENV=production
+      - APP_DEBUG=false
+    ports:
+      - "8000:8000"
+      - "5173:5173"  # For development hot reload if needed
+    restart: always
+    container_name: newsapp
+    depends_on:
+      - time-fix
+      - pythonapp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# Optional: Define volumes for data persistence
+volumes:
+  bellapp_logs:
+    driver: local
+  config_logs:
+    driver: local
+
+# Network configuration (using default bridge network)
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

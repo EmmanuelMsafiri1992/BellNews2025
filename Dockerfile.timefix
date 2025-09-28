@@ -1,0 +1,25 @@
+# Dockerfile for Time Synchronization Service
+# Ensures accurate system time before Docker operations
+FROM ubuntu:22.04
+
+# Install time synchronization tools
+RUN apt-get update && apt-get install -y \
+    ntpdate \
+    ntp \
+    curl \
+    wget \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy time fix script
+COPY auto-time-fix.sh /usr/local/bin/auto-time-fix.sh
+RUN chmod +x /usr/local/bin/auto-time-fix.sh
+
+# Create log directory
+RUN mkdir -p /var/log
+
+# Set working directory
+WORKDIR /app
+
+# Default command runs time fix
+CMD ["/usr/local/bin/auto-time-fix.sh"]

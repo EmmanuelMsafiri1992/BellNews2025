@@ -1,0 +1,15 @@
+ * Serving Flask app 'vcns_timer_service'
+ * Debug mode: off
+wav files found in /bellapp/static/audio. simpleaudio requires .wav files.
+2025-09-06 16:59:44,147 - VCNS-Timer-Service - INFO - Loaded 1 alarms from file
+2025-09-06 16:59:44,149 - VCNS-Timer-Service - INFO - Watchdog thread started
+2025-09-06 16:59:44,149 - VCNS-Timer-Service - INFO - Alarm checking thread started
+2025-09-06 16:59:44,150 - VCNS-Timer-Service - INFO - Starting Flask service on 0.0.0.0:5001
+2025-09-06 16:59:44,151 - VCNS-Timer-Service - INFO - Watchdog timeout: 600s
+2025-09-06 16:59:44,152 - VCNS-Timer-Service - INFO - Max critical errors: 5
+2025-09-06 16:59:44,173 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://172.18.0.2:5001
+2025-09-06 16:59:44,174 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-09-06 16:59:50,114 - werkzeug - INFO - 127.0.0.1 - - [06/Sep/2025 16:59:50] "GET /api/status HTTP/1.1" 200 -

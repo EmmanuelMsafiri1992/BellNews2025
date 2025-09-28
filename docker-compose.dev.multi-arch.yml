@@ -1,0 +1,103 @@
+# Docker Compose file for development with multi-architecture support
+# Uses local build context for development and testing
+
+version: '3.8'
+
+services:
+  # Time synchronization service
+  time-fix:
+    build:
+      context: .
+      dockerfile: Dockerfile.timefix
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    container_name: time-fix-service-dev
+    privileged: true
+    network_mode: "host"
+    volumes:
+      - /var/log:/var/log
+    restart: "no"
+    profiles: ["full", "dev"]
+
+  # Ubuntu Configuration Service (development mode)
+  config_service:
+    build:
+      context: .
+      dockerfile: Dockerfile_config.multi-arch
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    network_mode: "host"
+    restart: always
+    container_name: config_service_dev
+    volumes:
+      - /etc/netplan:/etc/netplan:ro  # Read-only in development
+      - ./config_service_logs:/var/log
+    environment:
+      IN_DOCKER_TEST_MODE: "true"  # Enable test mode for development
+    profiles: ["full", "dev"]
+
+  # Python Flask application (development with hot reload)
+  pythonapp:
+    build:
+      context: ./bellapp
+      dockerfile: Dockerfile.multi-arch
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    restart: always
+    container_name: bellapp_dev
+    volumes:
+      # Mount source code for development
+      - ./bellapp:/bellapp
+      - ./bellapp/logs:/bellapp/logs
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - UBUNTU_CONFIG_SERVICE_URL=http://localhost:5002
+    depends_on:
+      - config_service
+    profiles: ["full", "dev", "app-only"]
+
+  # Laravel application (development with hot reload)
+  laravelapp:
+    build:
+      context: ./newsapp
+      dockerfile: Dockerfile.multi-arch
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    environment:
+      - VITE_API_BASE_URL=http://pythonapp:5000
+      - APP_ENV=local
+      - APP_DEBUG=true
+    ports:
+      - "8000:8000"
+      - "5173:5173"  # Vite dev server
+    restart: always
+    container_name: newsapp_dev
+    volumes:
+      # Mount source code for development
+      - ./newsapp:/var/www/html
+      # Exclude these directories from mounting to use container versions
+      - /var/www/html/vendor
+      - /var/www/html/node_modules
+    depends_on:
+      - pythonapp
+    profiles: ["full", "dev", "app-only"]
+
+# Development volumes
+volumes:
+  dev_bellapp_logs:
+    driver: local
+  dev_config_logs:
+    driver: local
+
+# Development networks
+networks:
+  default:
+    driver: bridge

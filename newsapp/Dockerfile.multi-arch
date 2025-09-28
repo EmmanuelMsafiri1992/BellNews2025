@@ -1,0 +1,104 @@
+# Multi-architecture optimized Dockerfile for Laravel News App
+# Supports both AMD64 and ARM64 architectures
+FROM --platform=$BUILDPLATFORM php:8.2-apache
+
+# Build arguments
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
+
+WORKDIR /var/www/html
+
+# Install system dependencies and PHP extensions
+RUN apt-get update && apt-get install -y \
+    libzip-dev \
+    unzip \
+    git \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libsqlite3-dev \
+    sqlite3 \
+    pkg-config \
+    curl \
+    ca-certificates \
+    wget \
+    && docker-php-ext-configure gd \
+        --with-freetype=/usr/include/ \
+        --with-jpeg=/usr/include/ \
+    && docker-php-ext-install \
+        zip \
+        pdo \
+        pdo_mysql \
+        pdo_sqlite \
+        gd \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js with architecture-specific approach
+RUN case "${TARGETARCH}" in \
+        amd64) ARCH='x64' ;; \
+        arm64) ARCH='arm64' ;; \
+        *) echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://nodejs.org/dist/v18.19.0/node-v18.19.0-linux-${ARCH}.tar.xz" | tar -xJ -C /usr/local --strip-components=1 && \
+    node --version && npm --version
+
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer \
+    | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Copy composer files first for better caching
+COPY composer.json composer.lock* ./
+
+# Install PHP dependencies with optimizations
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-scripts \
+    --no-cache
+
+# Copy package files for Node.js dependencies
+COPY package.json package-lock.json* ./
+
+# Install Node.js dependencies with cache optimizations
+RUN npm ci --only=production --no-audit --no-fund --cache /tmp/npm-cache && \
+    npm cache clean --force && \
+    rm -rf /tmp/npm-cache
+
+# Copy source code (excluding what's in .dockerignore)
+COPY . .
+
+# Build frontend assets optimized for TV compatibility
+RUN npm run build:tv && \
+    npm prune --production && \
+    rm -rf node_modules/.cache
+
+# Run Composer post-install scripts
+RUN composer dump-autoload --optimize --no-dev
+
+# Laravel setup with proper permissions
+RUN mkdir -p storage/logs storage/framework/{cache,sessions,views} database && \
+    touch database/database.sqlite && \
+    php artisan storage:link && \
+    chown -R www-data:www-data storage/ bootstrap/cache/ database/ && \
+    chmod -R 775 storage/ bootstrap/cache/ database/
+
+# Generate Laravel application key
+RUN php artisan key:generate --force
+
+# Copy and set up entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Health check for container monitoring
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose ports
+EXPOSE 8000
+
+# Set entrypoint
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

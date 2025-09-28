@@ -1,0 +1,81 @@
+2025-09-06 16:59:48,788 - VCNS-Timer-Web - INFO - get_or_create_secret_key:139 - Generated and saved new secret key to /bellapp/secret.key.
+2025-09-06 16:59:48,805 - VCNS-Timer-Web - INFO - startup_checks:1738 - Performing application startup checks and initializations...
+2025-09-06 16:59:48,807 - VCNS-Timer-Web - INFO - startup_checks:1744 - Ensured directory exists: /bellapp/logs
+2025-09-06 16:59:48,809 - VCNS-Timer-Web - INFO - startup_checks:1744 - Ensured directory exists: /bellapp/static/audio
+2025-09-06 16:59:49,996 - VCNS-Timer-Web - INFO - load_users_data:237 - Initialized default 'admin' and 'superuser' users.
+2025-09-06 16:59:50,026 - VCNS-Timer-Web - ERROR - load_config:316 - Error decoding JSON from /bellapp/config.json. Reverting to default settings.
+2025-09-06 16:59:50,151 - VCNS-Timer-Web - INFO - startup_checks:1756 - API connectivity confirmed to the configured service URL: http://localhost:5001
+2025-09-06 16:59:50,166 - VCNS-Timer-Web - INFO - startup_checks:1764 - Watchdog thread successfully started in the background.
+2025-09-06 16:59:50,178 - VCNS-Timer-Web - INFO - <module>:1769 - Attempting to start Flask web server...
+--- Flask app.run() is about to be called ---
+ * Serving Flask app 'vcns_timer_web'
+ * Debug mode: off
+2025-09-06 16:59:50,201 - werkzeug - INFO - _log:97 - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.18.0.2:5000
+2025-09-06 16:59:50,204 - werkzeug - INFO - _log:97 - [33mPress CTRL+C to quit[0m
+2025-09-06 16:59:55,055 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:55] "[32mGET / HTTP/1.1[0m" 302 -
+2025-09-06 16:59:55,186 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:55] "GET /login HTTP/1.1" 200 -
+2025-09-06 16:59:55,462 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:55] "GET /static/style.css HTTP/1.1" 200 -
+2025-09-06 16:59:55,468 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:55] "GET /static/main.js HTTP/1.1" 200 -
+2025-09-06 16:59:56,774 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:56] "GET /static/userManagement.js HTTP/1.1" 200 -
+2025-09-06 16:59:56,811 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:56] "GET /static/auth.js HTTP/1.1" 200 -
+2025-09-06 16:59:57,082 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:57] "GET /static/settings.js HTTP/1.1" 200 -
+2025-09-06 16:59:57,101 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:57] "GET /static/sounds.js HTTP/1.1" 200 -
+2025-09-06 16:59:57,102 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:57] "GET /static/dashboard.js HTTP/1.1" 200 -
+2025-09-06 16:59:57,106 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:57] "GET /static/alarms.js HTTP/1.1" 200 -
+2025-09-06 16:59:57,109 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:57] "GET /static/license.js HTTP/1.1" 200 -
+2025-09-06 16:59:57,141 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:57] "GET /static/globals.js HTTP/1.1" 200 -
+2025-09-06 16:59:57,143 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:57] "GET /static/ui.js HTTP/1.1" 200 -
+2025-09-06 16:59:57,661 - VCNS-Timer-Web - WARNING - not_found:1675 - 404 Not Found error encountered at: http://localhost:5000/favicon.ico
+2025-09-06 16:59:57,668 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:57] "[32mGET /favicon.ico HTTP/1.1[0m" 302 -
+2025-09-06 16:59:57,692 - werkzeug - INFO - _log:97 - 172.18.0.1 - - [06/Sep/2025 16:59:57] "GET /login HTTP/1.1" 200 -
+2025-09-06 17:05:11,495 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:05:43,661 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:06:15,759 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:06:47,921 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:07:20,057 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:07:52,209 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:08:24,371 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:08:56,518 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:09:28,673 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:10:00,783 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:10:33,029 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:11:05,134 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:11:37,304 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:12:09,463 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:12:41,673 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:13:13,752 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:13:45,946 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:14:18,079 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:14:50,303 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:15:22,381 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:15:54,544 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:16:26,730 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:16:58,889 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:17:31,146 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:18:03,315 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:18:35,492 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:19:07,660 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:19:39,896 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:20:12,193 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:20:44,221 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:21:16,366 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:21:48,610 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:22:20,791 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:22:52,933 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:23:25,102 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:23:57,321 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:24:29,532 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:25:01,668 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:25:33,849 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:26:06,055 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:26:36,974 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:27:10,335 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:27:42,504 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:28:14,716 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:28:46,907 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:29:19,043 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:29:51,183 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.
+2025-09-06 17:30:23,335 - VCNS-Timer-Web - WARNING - watchdog:1722 - No application heartbeat detected for 5 minutes. Possible unresponsiveness.

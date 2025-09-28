@@ -1,0 +1,333 @@
+/* TV Browser Compatibility Styles */
+/* This file provides styles optimized for Samsung and LG TV browsers */
+
+/* Reset and base styles for TV browsers */
+* {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+/* TV-specific font and rendering improvements */
+body, html {
+    font-family: Arial, sans-serif; /* Fallback to basic fonts for TV browsers */
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-size: 18px; /* Larger base font for TV screens */
+    line-height: 1.5;
+}
+
+/* Enhanced focus styles for TV remote navigation */
+*:focus,
+button:focus,
+.focusable:focus,
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+    outline: 4px solid #007bff !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 8px rgba(0, 123, 255, 0.3) !important;
+    border-radius: 4px !important;
+    background-color: rgba(0, 123, 255, 0.1) !important;
+    transition: none !important; /* Disable transitions that might not work on TV browsers */
+}
+
+/* Disable CSS Grid for older TV browsers, use flexbox instead */
+.grid {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.grid-cols-1 {
+    flex-direction: column;
+}
+
+.grid-cols-2 > * {
+    width: 50%;
+    flex: 0 0 50%;
+}
+
+/* TV-safe flexbox implementations */
+.flex {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+}
+
+.flex-col {
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+}
+
+.flex-1 {
+    -webkit-box-flex: 1;
+    -webkit-flex: 1;
+    -ms-flex: 1;
+    flex: 1;
+}
+
+.items-center {
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+}
+
+.justify-center {
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+}
+
+/* TV screen size optimizations */
+
+/* Standard HD TVs (1920x1080) */
+@media screen and (min-width: 1920px) and (max-width: 1920px) {
+    body {
+        font-size: 22px;
+    }
+    
+    .container {
+        max-width: 1800px;
+        margin: 0 auto;
+        padding: 40px;
+    }
+    
+    .text-sm { font-size: 18px !important; }
+    .text-base { font-size: 22px !important; }
+    .text-lg { font-size: 26px !important; }
+    .text-xl { font-size: 30px !important; }
+    .text-2xl { font-size: 36px !important; }
+    .text-3xl { font-size: 42px !important; }
+    .text-4xl { font-size: 48px !important; }
+}
+
+/* 4K TVs (3840x2160) */
+@media screen and (min-width: 3840px) {
+    body {
+        font-size: 28px;
+    }
+    
+    .container {
+        max-width: 3200px;
+        margin: 0 auto;
+        padding: 80px;
+    }
+    
+    .text-sm { font-size: 24px !important; }
+    .text-base { font-size: 28px !important; }
+    .text-lg { font-size: 32px !important; }
+    .text-xl { font-size: 38px !important; }
+    .text-2xl { font-size: 44px !important; }
+    .text-3xl { font-size: 52px !important; }
+    .text-4xl { font-size: 60px !important; }
+    
+    /* Larger buttons for 4K TVs */
+    button {
+        min-width: 80px;
+        min-height: 60px;
+        font-size: 28px;
+        padding: 16px 32px;
+    }
+}
+
+/* TV-specific component fixes */
+
+/* Loading animation that works on TV browsers */
+.tv-loading {
+    width: 60px;
+    height: 60px;
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #3498db;
+    border-radius: 50%;
+    -webkit-animation: tv-spin 2s linear infinite;
+    animation: tv-spin 2s linear infinite;
+    margin: 20px auto;
+}
+
+@-webkit-keyframes tv-spin {
+    0% { -webkit-transform: rotate(0deg); }
+    100% { -webkit-transform: rotate(360deg); }
+}
+
+@keyframes tv-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Image loading states for TV browsers */
+.tv-image {
+    background-color: #f0f0f0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    transition: opacity 0.3s ease;
+}
+
+.tv-image.loading {
+    background-color: #e0e0e0;
+    opacity: 0.7;
+}
+
+.tv-image.error {
+    background-color: #f5f5f5;
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f5f5f5"/><text x="50" y="50" font-family="Arial" font-size="12" text-anchor="middle" dy=".3em" fill="%23999">No Image</text></svg>');
+    background-size: 200px 150px;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* Simplified shadows that work on older browsers */
+.tv-shadow {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tv-shadow-lg {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* TV-safe rounded corners */
+.tv-rounded {
+    border-radius: 8px;
+}
+
+.tv-rounded-lg {
+    border-radius: 12px;
+}
+
+/* High contrast mode for better visibility on TV screens */
+.tv-high-contrast {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+}
+
+.tv-high-contrast .text-gray-500 {
+    color: #cccccc !important;
+}
+
+.tv-high-contrast .bg-gray-50 {
+    background-color: #333333 !important;
+}
+
+.tv-high-contrast .bg-white {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+}
+
+/* TV remote navigation helpers */
+.tv-navigable {
+    cursor: pointer;
+    position: relative;
+}
+
+.tv-navigable:before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    pointer-events: none;
+    transition: border-color 0.2s ease;
+}
+
+.tv-navigable:focus:before {
+    border-color: #007bff;
+}
+
+/* Fix for flexbox gaps on older browsers */
+.tv-gap-4 > * {
+    margin: 8px;
+}
+
+.tv-gap-6 > * {
+    margin: 12px;
+}
+
+.tv-gap-8 > * {
+    margin: 16px;
+}
+
+/* Responsive typography for different TV sizes */
+@media screen and (max-width: 1366px) {
+    /* Older/smaller TVs */
+    body { font-size: 16px; }
+    .container { max-width: 1200px; padding: 20px; }
+}
+
+@media screen and (min-width: 1367px) and (max-width: 1919px) {
+    /* Standard HD TVs */
+    body { font-size: 20px; }
+    .container { max-width: 1600px; padding: 30px; }
+}
+
+@media screen and (min-width: 1920px) and (max-width: 3839px) {
+    /* Full HD and higher */
+    body { font-size: 24px; }
+    .container { max-width: 1800px; padding: 40px; }
+}
+
+/* TV-specific utility classes */
+.tv-hidden { display: none !important; }
+.tv-visible { display: block !important; }
+
+/* Safe transitions for TV browsers */
+.tv-transition {
+    -webkit-transition: all 0.3s ease;
+    transition: all 0.3s ease;
+}
+
+.tv-transition-fast {
+    -webkit-transition: all 0.15s ease;
+    transition: all 0.15s ease;
+}
+
+/* TV browser specific overrides */
+.tizen-browser *,
+.webos-browser * {
+    /* Force hardware acceleration for Tizen (Samsung) and WebOS (LG) */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+}
+
+/* Fix for older CSS property support */
+.tv-backdrop {
+    background: rgba(0, 0, 0, 0.5);
+    /* Fallback for browsers that don't support rgba */
+    background: #000000;
+    opacity: 0.5;
+}
+
+/* Text rendering optimization for TV screens */
+.tv-text-crisp {
+    text-rendering: geometricPrecision;
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
+}
+
+/* Memory-efficient animations for TV browsers */
+.tv-fade-in {
+    opacity: 0;
+    -webkit-animation: tvFadeIn 0.5s ease-in forwards;
+    animation: tvFadeIn 0.5s ease-in forwards;
+}
+
+@-webkit-keyframes tvFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes tvFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}

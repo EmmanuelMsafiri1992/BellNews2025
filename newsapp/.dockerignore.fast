@@ -1,0 +1,12 @@
+# Exclude heavy directories from Docker build context
+node_modules/
+vendor/
+.git/
+*.log
+storage/logs/*
+.env.local
+.env.development.local
+.env.production.local
+*.map
+public/build/
+public/hot

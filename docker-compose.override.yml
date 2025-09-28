@@ -1,0 +1,40 @@
+# docker-compose.override.yml
+# This file provides environment-specific overrides for local development
+# It automatically applies when running docker-compose up
+
+version: '3.8'
+
+services:
+  # Configuration service optimized for Ubuntu 16.04
+  config_service:
+    environment:
+      # Set to 'false' for real Ubuntu 16.04 operations
+      IN_DOCKER_TEST_MODE: "false"
+      # Add Ubuntu version detection
+      UBUNTU_VERSION_OVERRIDE: "16.04"
+    volumes:
+      # Mount the legacy interfaces file for Ubuntu 16.04
+      - /etc/network/interfaces:/etc/network/interfaces
+      # Mount additional network config directories
+      - /etc/dhcp:/etc/dhcp
+      - /etc/resolv.conf:/etc/resolv.conf
+      # Mount time configuration files for Ubuntu 16.04
+      - /etc/ntp.conf:/etc/ntp.conf
+      - /etc/timezone:/etc/timezone
+      - /etc/localtime:/etc/localtime
+      # Mount hardware clock access
+      - /dev/rtc0:/dev/rtc0
+    
+  # Laravel app with dynamic environment variables
+  laravelapp:
+    environment:
+      # These will be overridden by the .env file
+      - APP_URL=${APP_URL:-http://192.168.33.3:8000}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://192.168.33.3:8000}
+    
+  # Python app with enhanced logging
+  pythonapp:
+    environment:
+      # Enhanced logging for debugging IP issues
+      - LOG_LEVEL=DEBUG
+      - NETWORK_DEBUG=true

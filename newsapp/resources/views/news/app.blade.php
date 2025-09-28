@@ -1,0 +1,1 @@
+@include('news.original-app')

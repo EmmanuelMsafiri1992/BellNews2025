@@ -1,0 +1,92 @@
+# Optimized .dockerignore for faster builds
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+README*
+CHANGELOG*
+LICENSE*
+
+# Logs (keep logs directory but exclude log files)
+*.log
+logs/*.log
+
+# Test files
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Development tools
+.flake8
+.pylintrc
+mypy.ini
+.mypy_cache/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Backup files
+*.bak
+*.backup
+
+# Configuration files that shouldn't be in container
+.env.local
+.env.development
+config.json.bak
+
+# Audio test files (keep only necessary ones)
+*.wav
+*.mp3
+*.ogg
+test_audio/

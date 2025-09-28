@@ -1,0 +1,55 @@
+# Multi-architecture optimized Dockerfile for Ubuntu Configuration Service
+# Supports both AMD64 and ARM64 architectures
+FROM --platform=$BUILDPLATFORM python:3.9-slim-bullseye
+
+# Build arguments
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Install build dependencies and essential utilities with architecture awareness
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    build-essential \
+    libc6-dev \
+    make \
+    tzdata \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PyYAML for Netplan YAML generation
+RUN pip install --no-cache-dir --no-compile pyyaml
+
+# Copy requirements and application code
+COPY requirements.txt ubuntu_config_service.py ./
+
+# Install Python dependencies with optimizations
+RUN pip install --no-cache-dir --no-compile -r requirements.txt
+
+# Clean up build dependencies to reduce image size
+RUN apt-get update && apt-get purge -y \
+    gcc \
+    python3-dev \
+    build-essential \
+    libc6-dev \
+    make \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Health check for container monitoring
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:5002/health')" || exit 1
+
+# Expose the Flask application port
+EXPOSE 5002
+
+# Command to run the Flask application
+CMD ["python", "-u", "ubuntu_config_service.py"]
