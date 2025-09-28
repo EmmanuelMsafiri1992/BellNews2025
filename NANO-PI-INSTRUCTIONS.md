@@ -1,5 +1,8 @@
 # 🚀 Nano Pi Deployment Instructions
 
+## 🔧 ARCHITECTURE FIX
+**IMPORTANT**: The `exec format error` was caused by platform conflicts. All `--platform=linux/arm64` specifications have been removed to let Docker auto-detect ARM64.
+
 ## Quick Commands for Nano Pi
 
 After you `git pull` the latest changes, run these commands on your Nano Pi:

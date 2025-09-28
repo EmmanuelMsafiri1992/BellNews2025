@@ -1,5 +1,5 @@
-# Docker Compose Override for Nano Pi Fast Deploy with DNS Fixes
-# This file automatically handles DNS resolution issues
+# ARM64-compatible Docker Compose override for Nano Pi
+# Removes platform specifications to let Docker auto-detect ARM64
 # Usage: docker-compose -f docker-compose.prod.yml -f docker-compose.nano-pi-fast.yml up --build -d
 
 services:
@@ -13,8 +13,6 @@ services:
     network_mode: "host"
     volumes:
       - /var/log:/var/log
-      - /etc/resolv.conf:/etc/host-resolv.conf:ro
-      - /etc/docker:/etc/host-docker
     restart: "no"
     command: ["/usr/local/bin/auto-time-fix.sh"]
     environment:
@@ -78,9 +76,3 @@ services:
     privileged: true
     environment:
       IN_DOCKER_TEST_MODE: "false"
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
-    dns_opt:
-      - timeout:2
-      - attempts:3

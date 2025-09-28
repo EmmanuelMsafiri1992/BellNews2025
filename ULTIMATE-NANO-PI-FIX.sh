@@ -151,7 +151,7 @@ step "3/8 - CREATING BULLETPROOF ARM64 DOCKERFILE"
 cat > newsapp/Dockerfile << 'EOF'
 # BULLETPROOF ARM64 DOCKERFILE FOR LARAVEL
 # Designed specifically for Nano Pi and ARM64 systems
-FROM --platform=linux/arm64 php:8.2-apache
+FROM php:8.2-apache
 
 WORKDIR /var/www/html
 
@@ -297,14 +297,12 @@ success "Bulletproof ARM64 Dockerfile created"
 step "4/8 - CREATING OPTIMIZED DOCKER COMPOSE OVERRIDE"
 
 cat > docker-compose.nano-pi.yml << 'EOF'
-# Nano Pi optimized override
+# Nano Pi optimized override (auto-detects ARM64)
 services:
   time-fix:
     build:
       context: .
       dockerfile: Dockerfile.timefix
-      platforms:
-        - linux/arm64
     dns:
       - 8.8.8.8
       - 8.8.4.4
@@ -315,8 +313,6 @@ services:
   pythonapp:
     build:
       context: ./bellapp
-      platforms:
-        - linux/arm64
     dns:
       - 8.8.8.8
       - 8.8.4.4
@@ -327,8 +323,6 @@ services:
   laravelapp:
     build:
       context: ./newsapp
-      platforms:
-        - linux/arm64
     dns:
       - 8.8.8.8
       - 8.8.4.4
@@ -340,8 +334,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile_config
-      platforms:
-        - linux/arm64
     dns:
       - 8.8.8.8
       - 8.8.4.4

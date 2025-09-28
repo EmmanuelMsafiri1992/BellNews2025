@@ -1,5 +1,5 @@
 # ARM64-optimized Dockerfile for Laravel News App - NANO PI VERSION
-FROM --platform=linux/arm64 php:8.2-apache
+FROM php:8.2-apache
 
 WORKDIR /var/www/html
 
