@@ -932,9 +932,23 @@ install_python_deps() {
 
     # Install pygame with intelligent methods
     if ! install_pygame_intelligent; then
-        log_error "❌ CRITICAL: Pygame installation failed completely"
-        log_error "Bell News requires pygame for audio functionality"
-        exit 1
+        log_error "❌ Pygame installation failed with all automated methods"
+        log_warning "Bell News requires pygame for audio functionality"
+        echo
+        log_warning "An emergency pygame fix script has been created: emergency_pygame_fix.sh"
+        log_warning "You can run it manually after installation completes"
+        echo
+        read -p "Continue installation without pygame? (y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            log_warning "Continuing installation without pygame (audio will not work)"
+            PYGAME_INSTALLED=false
+        else
+            log_error "Installation cancelled. Fix pygame and try again."
+            exit 1
+        fi
+    else
+        PYGAME_INSTALLED=true
     fi
 
     log "Python dependencies installation completed"
