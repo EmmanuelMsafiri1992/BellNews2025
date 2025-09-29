@@ -882,7 +882,7 @@ def login():
         # Return JSON for AJAX handling
         return jsonify({"status": "error", "message": "Invalid password. Please try again."}), 401 # Use 401 Unauthorized
 
-    return render_template("index.html", is_logged_in=False) # Render login page on GET request
+    return render_template("login.html") # Render login page on GET request
 
 @app.route("/logout", methods=["GET", "POST"])
 @login_required # Requires user to be logged in to access
