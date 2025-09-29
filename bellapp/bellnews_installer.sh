@@ -258,13 +258,35 @@ check_build_requirements() {
         fi
     done
 
-    # Check internet connectivity
-    if ! wget -q --spider --timeout=10 https://www.python.org 2>/dev/null; then
-        log_error "No internet connection or unable to reach python.org"
-        log_error "Internet access is required to download Python source"
-        requirements_met=false
-    else
-        log "Internet connectivity check: OK"
+    # Check internet connectivity with multiple fallbacks
+    log "Testing internet connectivity..."
+    CONNECTIVITY_OK=false
+
+    # Test multiple sites to ensure it's not just one site being down
+    TEST_URLS=("https://www.python.org" "https://github.com" "https://google.com")
+
+    for url in "${TEST_URLS[@]}"; do
+        if wget -q --spider --timeout=5 "$url" 2>/dev/null; then
+            log "Internet connectivity check: OK (via $(echo $url | cut -d'/' -f3))"
+            CONNECTIVITY_OK=true
+            break
+        fi
+    done
+
+    if [[ "$CONNECTIVITY_OK" == "false" ]]; then
+        log_warning "No internet connection detected"
+        log_warning "This may be due to:"
+        log_warning "  - No internet access"
+        log_warning "  - Firewall blocking connections"
+        log_warning "  - DNS resolution issues"
+        echo
+        read -p "Continue anyway? You may need to provide Python source manually (y/n): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_error "Installation cancelled due to connectivity issues"
+            exit 1
+        fi
+        log_warning "Continuing without internet connectivity verification..."
     fi
 
     if [[ "$requirements_met" == "false" ]]; then
@@ -283,6 +305,7 @@ check_python() {
     if command -v python3.12 &> /dev/null; then
         CURRENT_PYTHON_VERSION=$(python3.12 --version | cut -d' ' -f2)
         log "Python 3.12 found: $CURRENT_PYTHON_VERSION"
+        PYTHON_CMD="python3.12"
         PYTHON_INSTALLED=true
         return 0
     fi
@@ -298,10 +321,28 @@ check_python() {
             PYTHON_CMD="python3"
             PYTHON_INSTALLED=true
             return 0
+        # Check if system python is 3.8+ (minimum for Bell News)
+        elif python3 -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)" 2>/dev/null; then
+            log_warning "System Python $SYSTEM_PYTHON_VERSION is older than 3.12 but may work"
+            read -p "Use system Python $SYSTEM_PYTHON_VERSION instead of compiling 3.12? (y/n): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                log "Using system Python $SYSTEM_PYTHON_VERSION"
+                PYTHON_CMD="python3"
+                PYTHON_INSTALLED=true
+                return 0
+            fi
         fi
     fi
 
+    # Check if we're in an environment where Python compilation might fail
+    if [[ $(free -m | awk 'NR==2{print $2}') -lt 1000 ]]; then
+        log_warning "Low memory system detected. Python compilation may fail."
+        log_warning "Consider using system Python if available."
+    fi
+
     log_warning "Python 3.12 not found. Will compile from source."
+    log_warning "This requires internet access and may take 15-30 minutes."
     PYTHON_INSTALLED=false
 }
 
@@ -309,10 +350,13 @@ check_python() {
 install_system_deps() {
     log_info "Installing system dependencies (optimized)..."
 
-    # Update package lists only if needed
-    if [[ ! -f /var/cache/apt/pkgcache.bin ]] || [[ $(find /var/cache/apt/pkgcache.bin -mmin +60) ]]; then
+    # Update package lists with network error handling
+    if [[ ! -f /var/cache/apt/pkgcache.bin ]] || [[ $(find /var/cache/apt/pkgcache.bin -mmin +60 2>/dev/null) ]]; then
         log "Updating package lists..."
-        apt-get update -qq
+        if ! apt-get update -qq 2>/dev/null; then
+            log_warning "Package list update failed (network issue?)"
+            log_warning "Continuing with existing package cache..."
+        fi
     else
         log "Package lists are recent, skipping update"
     fi
@@ -440,22 +484,75 @@ install_python312() {
     mkdir -p /usr/src
     cd /usr/src
 
-    # Download Python source
+    # Download Python source with multiple mirrors
     PYTHON_TAR="Python-${PYTHON_VERSION}.tgz"
-    PYTHON_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/${PYTHON_TAR}"
+
+    # Multiple download mirrors for reliability
+    PYTHON_URLS=(
+        "https://www.python.org/ftp/python/${PYTHON_VERSION}/${PYTHON_TAR}"
+        "https://github.com/python/cpython/archive/refs/tags/v${PYTHON_VERSION}.tar.gz"
+        "https://files.pythonhosted.org/packages/source/P/Python/${PYTHON_TAR}"
+    )
 
     if [[ ! -f "$PYTHON_TAR" ]]; then
         log "Downloading Python $PYTHON_VERSION..."
-        wget -q --show-progress --tries=3 --timeout=30 "$PYTHON_URL" || {
-            log_error "Failed to download Python source"
+
+        DOWNLOAD_SUCCESS=false
+        for url in "${PYTHON_URLS[@]}"; do
+            log_info "Trying mirror: $(echo $url | cut -d'/' -f3)"
+
+            if wget -q --show-progress --tries=2 --timeout=30 "$url" -O "$PYTHON_TAR" 2>/dev/null; then
+                log "Download successful from $(echo $url | cut -d'/' -f3)"
+                DOWNLOAD_SUCCESS=true
+                break
+            else
+                log_warning "Failed to download from $(echo $url | cut -d'/' -f3)"
+                rm -f "$PYTHON_TAR" 2>/dev/null
+            fi
+        done
+
+        if [[ "$DOWNLOAD_SUCCESS" == "false" ]]; then
+            log_error "Failed to download Python source from all mirrors"
+            log_error "Please check your internet connection and try again"
+            log_error "Or manually download ${PYTHON_TAR} to /usr/src/ and re-run installer"
             exit 1
-        }
+        fi
+
+        # Verify download
+        if [[ ! -s "$PYTHON_TAR" ]]; then
+            log_error "Downloaded file is empty or corrupted"
+            rm -f "$PYTHON_TAR"
+            exit 1
+        fi
+
+        log "Python source downloaded successfully ($(du -h "$PYTHON_TAR" | cut -f1))"
+    else
+        log "Python source already exists, skipping download"
     fi
 
-    # Extract source
+    # Extract source with error handling
     log "Extracting Python source..."
-    tar -xzf "$PYTHON_TAR"
-    cd "Python-${PYTHON_VERSION}"
+
+    if ! tar -xzf "$PYTHON_TAR" 2>/dev/null; then
+        log_error "Failed to extract Python source archive"
+        log_error "The downloaded file may be corrupted"
+        rm -f "$PYTHON_TAR"
+        log_error "Please run the installer again to re-download"
+        exit 1
+    fi
+
+    # Handle different archive structures
+    if [[ -d "Python-${PYTHON_VERSION}" ]]; then
+        cd "Python-${PYTHON_VERSION}"
+        log "Entered Python source directory"
+    elif [[ -d "cpython-${PYTHON_VERSION}" ]]; then
+        cd "cpython-${PYTHON_VERSION}"
+        log "Entered Python source directory (GitHub archive)"
+    else
+        log_error "Could not find Python source directory after extraction"
+        ls -la
+        exit 1
+    fi
 
     # Configure build with multiple fallback options
     log "Configuring Python build..."
