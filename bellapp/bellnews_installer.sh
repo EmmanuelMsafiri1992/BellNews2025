@@ -405,6 +405,9 @@ install_system_deps() {
         "rsyslog"
         "python3-pip"
         "python3-dev"
+        "python3-bcrypt"
+        "python3-setuptools"
+        "python3-wheel"
     )
 
     # Pygame-specific dependencies for ARM systems
@@ -873,17 +876,21 @@ install_python_deps() {
     # Upgrade pip first with optimizations
     $PYTHON_CMD -m pip install --upgrade --no-cache-dir pip setuptools wheel
 
-    # Core dependencies (excluding pygame - handled separately)
+    # Core dependencies (excluding bcrypt and pygame - handled separately)
     CORE_DEPS=(
         "flask>=2.0.0"
         "psutil>=5.8.0"
         "pytz>=2021.3"
         "requests>=2.25.0"
-        "bcrypt>=3.2.0"
         "gunicorn>=20.1.0"
         "pillow>=8.3.0"
         "luma.oled>=3.8.0"
         "luma.core>=2.4.0"
+    )
+
+    # ARM-problematic packages that need special handling
+    ARM_PROBLEMATIC=(
+        "bcrypt"
     )
 
     # Board-specific GPIO libraries
@@ -918,13 +925,32 @@ install_python_deps() {
                 fi
 
                 if [[ $attempt -eq 2 ]]; then
-                    log_error "Failed to install critical package: $package"
+                    log_warning "Failed to install $package via pip, will try alternatives"
                 fi
             done
         done
     else
         log "Core packages installed successfully"
     fi
+
+    # Handle ARM-problematic packages with system packages
+    log "Installing ARM-optimized packages..."
+    for package in "${ARM_PROBLEMATIC[@]}"; do
+        case $package in
+            "bcrypt")
+                log_info "Installing bcrypt via system package (ARM-optimized)..."
+                if apt-get install -y python3-bcrypt -qq 2>/dev/null; then
+                    log "✅ bcrypt installed via system package"
+                elif $PYTHON_CMD -m pip install bcrypt==3.2.0 --no-cache-dir 2>/dev/null; then
+                    log "✅ bcrypt installed via pip (older version)"
+                elif $PYTHON_CMD -m pip install bcrypt==4.0.1 --no-cache-dir 2>/dev/null; then
+                    log "✅ bcrypt installed via pip (compatible version)"
+                else
+                    log_error "❌ Failed to install bcrypt - web authentication may not work"
+                fi
+                ;;
+        esac
+    done
 
     # Install GPIO libraries
     log "Installing GPIO libraries..."

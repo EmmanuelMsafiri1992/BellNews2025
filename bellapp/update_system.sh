@@ -56,7 +56,12 @@ else
     echo '[]' | sudo tee /opt/bellnews/alarms.json > /dev/null
 fi
 
-# Step 4: Ensure pygame compatibility stub is installed
+# Step 4: Install critical system packages
+log "Installing critical system packages..."
+apt-get update -qq
+apt-get install -y python3-bcrypt python3-setuptools python3-wheel -qq 2>/dev/null || log_warning "Some system packages failed to install"
+
+# Step 5: Ensure pygame compatibility stub is installed
 log "Checking pygame compatibility..."
 PYTHON_CMD="python3"
 SITE_PACKAGES=$($PYTHON_CMD -c "import site; print(site.getsitepackages()[0])" 2>/dev/null || echo "/usr/local/lib/python3.10/site-packages")
@@ -119,14 +124,25 @@ EOF
     log "Pygame compatibility stub installed"
 fi
 
-# Step 5: Update application files
+# Step 6: Ensure bcrypt is available
+log "Ensuring bcrypt is available..."
+if ! $PYTHON_CMD -c "import bcrypt" 2>/dev/null; then
+    log_warning "Installing bcrypt..."
+    if ! $PYTHON_CMD -m pip install bcrypt==3.2.0 --no-cache-dir 2>/dev/null; then
+        if ! $PYTHON_CMD -m pip install bcrypt==4.0.1 --no-cache-dir 2>/dev/null; then
+            log_error "Failed to install bcrypt - installing anyway"
+        fi
+    fi
+fi
+
+# Step 7: Update application files
 log "Updating application files..."
 sudo cp -r ./* /opt/bellnews/ 2>/dev/null || true
 sudo chown -R root:root /opt/bellnews
 sudo chmod -R 755 /opt/bellnews
 sudo chmod +x /opt/bellnews/*.py
 
-# Step 6: Update systemd service to use correct web file
+# Step 8: Update systemd service to use correct web file
 log "Updating systemd service configuration..."
 if [[ -f /etc/systemd/system/bellnews.service ]]; then
     # Replace nano_web_timer.py with vcns_timer_web.py in service file
@@ -137,7 +153,7 @@ else
     log_warning "Service file not found, run installer first"
 fi
 
-# Step 7: Create required directories
+# Step 9: Create required directories
 log "Creating required directories..."
 sudo mkdir -p /var/log/bellnews
 sudo mkdir -p /opt/bellnews/static/audio
@@ -145,14 +161,21 @@ sudo mkdir -p /opt/bellnews/logs
 sudo chmod 755 /var/log/bellnews
 sudo chmod 777 /opt/bellnews/logs
 
-# Step 8: Test the system
+# Step 10: Test the system
 log "Testing system components..."
 
 # Test Python imports
 if ! $PYTHON_CMD -c "import flask, pygame, psutil; print('Core modules OK')" 2>/dev/null; then
-    log_error "Some Python modules are missing"
+    log_warning "Some core Python modules are missing"
 else
-    log "Python modules test: PASSED"
+    log "Core modules test: PASSED"
+fi
+
+# Test bcrypt specifically
+if $PYTHON_CMD -c "import bcrypt; print('bcrypt OK')" 2>/dev/null; then
+    log "bcrypt test: PASSED"
+else
+    log_warning "bcrypt test failed (authentication may not work)"
 fi
 
 # Test pygame
@@ -162,14 +185,14 @@ else
     log_warning "Pygame test failed (audio may not work)"
 fi
 
-# Step 9: Start services
+# Step 11: Start services
 log "Starting Bell News services..."
 sudo systemctl start bellnews
 
 # Wait for services to start
 sleep 10
 
-# Step 10: Verify everything is working
+# Step 12: Verify everything is working
 log "Verifying system status..."
 
 if sudo systemctl is-active bellnews >/dev/null 2>&1; then
