@@ -138,7 +138,8 @@ def get_or_create_secret_key():
         os.chmod(secret_file, 0o600)
         logger.info(f"Generated and saved new secret key to {secret_file}.")
     except Exception as e:
-        logger.critical("FATAL: Could not save new secret key to {}: {}. This will lead to session management issues and potential application failure.".format(secret_file, e))
+        logger.critical(f"FATAL: Could not save new secret key to {secret_file}: {e}. "
+                        "This will lead to session management issues and potential application failure.")
         # If the secret key cannot be saved, the application is in a critical state and should not proceed.
         raise
 
