@@ -3,7 +3,10 @@
     "allow": [
       "Bash(find:*)",
       "WebFetch(domain:www.aliexpress.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(bash:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

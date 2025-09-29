@@ -74,6 +74,16 @@ WantedBy=multi-user.target
         service_file.chmod(0o644)
         logger.info(f"Set permissions for {service_file}")
 
+        # Disable and stop existing service if it exists
+        try:
+            subprocess.run(["systemctl", "stop", "vcns-timer.service"],
+                          capture_output=True, text=True)
+            subprocess.run(["systemctl", "disable", "vcns-timer.service"],
+                          capture_output=True, text=True)
+            logger.info("Stopped and disabled existing service")
+        except subprocess.CalledProcessError:
+            pass
+
         # Reload systemd daemon
         subprocess.run(["systemctl", "daemon-reload"], check=True)
         logger.info("Reloaded systemd daemon")

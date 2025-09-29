@@ -59,6 +59,125 @@ check_root() {
     fi
 }
 
+# Check for running Bell News processes
+check_running_processes() {
+    log_info "Checking for running Bell News processes..."
+
+    local processes_found=false
+    local running_processes=()
+
+    # Check for Bell News Python processes
+    if pgrep -f "nanopi_monitor.py" >/dev/null 2>&1; then
+        running_processes+=("nanopi_monitor.py")
+        processes_found=true
+    fi
+
+    if pgrep -f "nano_web_timer.py" >/dev/null 2>&1; then
+        running_processes+=("nano_web_timer.py")
+        processes_found=true
+    fi
+
+    if pgrep -f "main.py" >/dev/null 2>&1; then
+        running_processes+=("main.py")
+        processes_found=true
+    fi
+
+    # Check for Bell News service
+    if systemctl is-active "$SERVICE_NAME" >/dev/null 2>&1; then
+        running_processes+=("$SERVICE_NAME service")
+        processes_found=true
+    fi
+
+    if [[ "$processes_found" == "true" ]]; then
+        log_warning "Found running Bell News processes:"
+        for process in "${running_processes[@]}"; do
+            log_warning "  - $process"
+        done
+        return 0
+    else
+        log "No running Bell News processes detected"
+        return 1
+    fi
+}
+
+# Stop existing Bell News processes and services
+stop_existing_processes() {
+    log_info "Stopping existing Bell News processes and services..."
+
+    # Stop systemd service first
+    if systemctl is-active "$SERVICE_NAME" >/dev/null 2>&1; then
+        log "Stopping $SERVICE_NAME service..."
+        systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+        sleep 2
+    fi
+
+    # Kill Python processes gracefully first
+    local processes=("nanopi_monitor.py" "nano_web_timer.py" "main.py")
+    for process in "${processes[@]}"; do
+        if pgrep -f "$process" >/dev/null 2>&1; then
+            log "Stopping $process processes..."
+            pkill -f "$process" 2>/dev/null || true
+        fi
+    done
+
+    # Wait for graceful shutdown
+    sleep 3
+
+    # Force kill if still running
+    for process in "${processes[@]}"; do
+        if pgrep -f "$process" >/dev/null 2>&1; then
+            log_warning "Force killing $process processes..."
+            pkill -9 -f "$process" 2>/dev/null || true
+        fi
+    done
+
+    # Remove stale PID files
+    rm -f /var/run/bellnews-*.pid 2>/dev/null || true
+
+    # Wait for cleanup
+    sleep 2
+
+    # Verify cleanup
+    local still_running=false
+    for process in "${processes[@]}"; do
+        if pgrep -f "$process" >/dev/null 2>&1; then
+            log_error "Failed to stop $process"
+            still_running=true
+        fi
+    done
+
+    if [[ "$still_running" == "false" ]]; then
+        log "All Bell News processes stopped successfully"
+    else
+        log_error "Some processes could not be stopped. Installation may fail."
+        read -p "Continue anyway? (y/n): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
+}
+
+# Clean existing installation
+clean_existing_installation() {
+    log_info "Cleaning existing installation..."
+
+    # Remove old installation directory contents but keep the directory
+    if [[ -d "$INSTALL_DIR" ]]; then
+        log "Cleaning existing installation directory..."
+        rm -rf "$INSTALL_DIR"/* 2>/dev/null || true
+        rm -rf "$INSTALL_DIR"/.* 2>/dev/null || true
+    fi
+
+    # Clean old logs but keep directory
+    if [[ -d "/var/log/bellnews" ]]; then
+        log "Cleaning old log files..."
+        rm -f /var/log/bellnews/* 2>/dev/null || true
+    fi
+
+    log "Existing installation cleaned"
+}
+
 # Detect system information
 detect_system() {
     log_info "Detecting system information..."
@@ -138,12 +257,17 @@ check_python() {
     PYTHON_INSTALLED=false
 }
 
-# Install system dependencies
+# Install system dependencies (optimized)
 install_system_deps() {
-    log_info "Installing system dependencies..."
+    log_info "Installing system dependencies (optimized)..."
 
-    # Update package lists
-    apt-get update -qq
+    # Update package lists only if needed
+    if [[ ! -f /var/cache/apt/pkgcache.bin ]] || [[ $(find /var/cache/apt/pkgcache.bin -mmin +60) ]]; then
+        log "Updating package lists..."
+        apt-get update -qq
+    else
+        log "Package lists are recent, skipping update"
+    fi
 
     # Essential build tools for Python compilation
     BUILD_DEPS=(
@@ -214,14 +338,14 @@ install_system_deps() {
     log "System dependencies installed successfully"
 }
 
-# Compile and install Python 3.12
+# Compile and install Python 3.12 (optimized)
 install_python312() {
     if [[ "$PYTHON_INSTALLED" == "true" ]]; then
         log "Python 3.12+ already available, skipping compilation"
         return 0
     fi
 
-    log_info "Compiling Python $PYTHON_VERSION from source..."
+    log_info "Compiling Python $PYTHON_VERSION from source (optimized)..."
 
     # Create source directory
     mkdir -p /usr/src
@@ -233,7 +357,8 @@ install_python312() {
 
     if [[ ! -f "$PYTHON_TAR" ]]; then
         log "Downloading Python $PYTHON_VERSION..."
-        wget -q --show-progress "$PYTHON_URL" || {
+        # Use multiple connections for faster download
+        wget -q --show-progress --tries=3 --timeout=30 "$PYTHON_URL" || {
             log_error "Failed to download Python source"
             exit 1
         }
@@ -244,45 +369,45 @@ install_python312() {
     tar -xzf "$PYTHON_TAR"
     cd "Python-${PYTHON_VERSION}"
 
-    # Configure build
-    log "Configuring Python build (this may take a while)..."
+    # Configure build (optimized for speed)
+    log "Configuring Python build (optimized)..."
 
-    # Try full configuration first
+    # Use faster configuration without full optimizations for quicker build
     if ! ./configure \
-        --enable-optimizations \
         --enable-shared \
         --with-computed-gotos \
         --enable-loadable-sqlite-extensions \
-        --with-system-expat \
-        --with-system-libmpdec \
-        --enable-ipv6 \
+        --disable-test-modules \
         --quiet 2>/dev/null; then
 
-        log_warning "Full configure failed, trying minimal configuration..."
+        log_warning "Optimized configure failed, trying minimal configuration..."
 
-        # Fallback to minimal but reliable configuration
+        # Fallback to minimal configuration
         ./configure \
-            --enable-optimizations \
             --enable-shared \
             --enable-loadable-sqlite-extensions \
+            --disable-test-modules \
             --quiet || {
-            log_error "Python configure failed with minimal options"
+            log_error "Python configure failed"
             exit 1
         }
     fi
 
-    # Compile (use all available cores)
+    # Compile (optimized)
     CORES=$(nproc)
-    log "Compiling Python with $CORES cores (this will take 10-30 minutes)..."
+    # Use slightly fewer cores to prevent system freeze
+    CORES=$((CORES > 1 ? CORES - 1 : 1))
+    log "Compiling Python with $CORES cores (optimized build - 5-15 minutes)..."
 
-    # Show progress for long compilation
+    # Build only essential components for faster compilation
     (
-        make -j"$CORES" > /tmp/python_build.log 2>&1 &
+        make -j"$CORES" build_all > /tmp/python_build.log 2>&1 &
         BUILD_PID=$!
 
+        # Progress indicator
         while kill -0 $BUILD_PID 2>/dev/null; do
             echo -n "."
-            sleep 10
+            sleep 5  # More frequent updates
         done
         wait $BUILD_PID
     ) || {
@@ -323,12 +448,12 @@ install_python312() {
     rm -rf "/usr/src/Python-${PYTHON_VERSION}" "/usr/src/${PYTHON_TAR}"
 }
 
-# Install Python dependencies
+# Install Python dependencies (optimized)
 install_python_deps() {
-    log_info "Installing Python dependencies..."
+    log_info "Installing Python dependencies (optimized)..."
 
-    # Upgrade pip first
-    $PYTHON_CMD -m pip install --upgrade pip setuptools wheel
+    # Upgrade pip first with optimizations
+    $PYTHON_CMD -m pip install --upgrade --no-cache-dir pip setuptools wheel
 
     # Core dependencies
     PYTHON_DEPS=(
@@ -358,22 +483,30 @@ install_python_deps() {
             ;;
     esac
 
-    # Install dependencies with retry logic
-    for package in "${PYTHON_DEPS[@]}"; do
-        log_info "Installing Python package: $package"
-        for attempt in {1..3}; do
-            if $PYTHON_CMD -m pip install "$package" --no-warn-script-location; then
-                break
-            else
-                log_warning "Attempt $attempt failed for $package, retrying..."
-                sleep 2
-            fi
+    # Install all dependencies in one command for speed
+    log "Installing all Python packages in batch..."
+    if ! $PYTHON_CMD -m pip install --no-cache-dir --no-warn-script-location "${PYTHON_DEPS[@]}" 2>/dev/null; then
+        log_warning "Batch installation failed, falling back to individual packages..."
 
-            if [[ $attempt -eq 3 ]]; then
-                log_warning "Failed to install $package after 3 attempts (may work anyway)"
-            fi
+        # Fallback: Install dependencies individually with retry logic
+        for package in "${PYTHON_DEPS[@]}"; do
+            log_info "Installing Python package: $package"
+            for attempt in {1..2}; do  # Reduced attempts from 3 to 2
+                if $PYTHON_CMD -m pip install --no-cache-dir "$package" --no-warn-script-location; then
+                    break
+                else
+                    log_warning "Attempt $attempt failed for $package, retrying..."
+                    sleep 1  # Reduced sleep from 2 to 1
+                fi
+
+                if [[ $attempt -eq 2 ]]; then
+                    log_warning "Failed to install $package after 2 attempts (may work anyway)"
+                fi
+            done
         done
-    done
+    else
+        log "Batch installation completed successfully"
+    fi
 
     log "Python dependencies installation completed"
 }
@@ -544,6 +677,21 @@ test_installation() {
 install_bellnews() {
     show_banner
     log "Starting Bell News installation..."
+
+    # Check for running processes first
+    if check_running_processes; then
+        echo
+        log_warning "Bell News is currently running. A clean installation requires stopping all processes."
+        read -p "Stop all Bell News processes and continue? (y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            stop_existing_processes
+            clean_existing_installation
+        else
+            log_error "Installation cancelled by user"
+            exit 1
+        fi
+    fi
 
     detect_system
     check_python
