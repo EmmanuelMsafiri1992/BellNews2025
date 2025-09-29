@@ -402,6 +402,32 @@ install_system_deps() {
         "python3-dev"
     )
 
+    # Pygame-specific dependencies for ARM systems
+    PYGAME_DEPS=(
+        "libsdl2-dev"
+        "libsdl2-image-dev"
+        "libsdl2-mixer-dev"
+        "libsdl2-ttf-dev"
+        "libfreetype6-dev"
+        "libportmidi-dev"
+        "libavformat-dev"
+        "libavcodec-dev"
+        "libswscale-dev"
+        "libsmpeg-dev"
+        "libjpeg-dev"
+        "libpng-dev"
+        "libx11-dev"
+        "libxext-dev"
+        "libxrandr-dev"
+        "libxinerama-dev"
+        "libxi-dev"
+        "libxss-dev"
+        "libxcursor-dev"
+        "libxfixes-dev"
+        "libxrender-dev"
+        "libxdamage-dev"
+    )
+
     # Install packages in priority order
     log "Installing system packages in priority order..."
 
@@ -467,6 +493,30 @@ install_system_deps() {
             log_info "$package already installed"
         fi
     done
+
+    # Install pygame-specific dependencies
+    log "Installing pygame dependencies for ARM systems..."
+    PYGAME_CRITICAL=true
+    for package in "${PYGAME_DEPS[@]}"; do
+        if ! dpkg -l | grep -q "^ii  $package "; then
+            log_info "Installing pygame dependency: $package"
+            if ! apt-get install -y "$package" -qq 2>/dev/null; then
+                log_warning "Failed to install $package (pygame may need compilation)"
+                if [[ "$package" == "libsdl2-dev" || "$package" == "libfreetype6-dev" ]]; then
+                    PYGAME_CRITICAL=false
+                fi
+            fi
+        else
+            log_info "$package already installed"
+        fi
+    done
+
+    if [[ "$PYGAME_CRITICAL" == "false" ]]; then
+        log_warning "Some critical pygame dependencies failed to install"
+        log_warning "Pygame will require compilation from source"
+    else
+        log "All pygame dependencies installed successfully"
+    fi
 
     log "System dependencies installed successfully"
 }
@@ -697,6 +747,120 @@ install_python312() {
     log "Python 3.12 installation completed successfully!"
 }
 
+# Intelligent pygame installation for ARM systems
+install_pygame_intelligent() {
+    log_info "Installing pygame with intelligent ARM-optimized methods..."
+
+    # Method 1: Try standard pip installation first
+    log "Method 1: Attempting standard pip installation..."
+    if $PYTHON_CMD -m pip install --no-cache-dir pygame>=2.1.0 --no-warn-script-location 2>/dev/null; then
+        if $PYTHON_CMD -c "import pygame; pygame.mixer.init(); print('pygame test successful')" 2>/dev/null; then
+            log "✅ Pygame installed successfully via pip"
+            return 0
+        else
+            log_warning "Pygame installed but failed functionality test"
+            $PYTHON_CMD -m pip uninstall -y pygame 2>/dev/null
+        fi
+    fi
+
+    # Method 2: Try with pre-compiled wheels for ARM
+    log "Method 2: Trying ARM-specific wheels..."
+    ARM_WHEELS=(
+        "https://www.piwheels.org/simple/pygame/pygame-2.1.2-cp310-cp310-linux_armv7l.whl"
+        "https://files.pythonhosted.org/packages/pygame"
+    )
+
+    for wheel_url in "${ARM_WHEELS[@]}"; do
+        log_info "Trying wheel: $(basename $wheel_url)"
+        if $PYTHON_CMD -m pip install --no-cache-dir "$wheel_url" --no-warn-script-location 2>/dev/null; then
+            if $PYTHON_CMD -c "import pygame; print('pygame wheel test successful')" 2>/dev/null; then
+                log "✅ Pygame installed successfully from ARM wheel"
+                return 0
+            else
+                $PYTHON_CMD -m pip uninstall -y pygame 2>/dev/null
+            fi
+        fi
+    done
+
+    # Method 3: Install with specific flags for ARM
+    log "Method 3: Installing with ARM-specific compiler flags..."
+    export SDL_VIDEODRIVER=dummy
+    export PYGAME_HIDE_SUPPORT_PROMPT=1
+
+    if $PYTHON_CMD -m pip install --no-cache-dir --no-binary pygame pygame>=2.1.0 --no-warn-script-location 2>/dev/null; then
+        if $PYTHON_CMD -c "import pygame; print('pygame compiled successfully')" 2>/dev/null; then
+            log "✅ Pygame compiled and installed successfully"
+            return 0
+        else
+            $PYTHON_CMD -m pip uninstall -y pygame 2>/dev/null
+        fi
+    fi
+
+    # Method 4: Compile from source with custom configuration
+    log "Method 4: Compiling pygame from source with custom ARM configuration..."
+
+    # Create temporary build directory
+    PYGAME_BUILD_DIR="/tmp/pygame_build_$$"
+    mkdir -p "$PYGAME_BUILD_DIR"
+    cd "$PYGAME_BUILD_DIR"
+
+    # Download pygame source
+    if wget -q --timeout=30 https://github.com/pygame/pygame/archive/refs/tags/2.1.2.tar.gz -O pygame-2.1.2.tar.gz; then
+        tar -xzf pygame-2.1.2.tar.gz
+        cd pygame-2.1.2
+
+        # Create custom Setup file for ARM
+        cat > Setup << 'EOF'
+# Custom pygame Setup for ARM systems
+_freetype freetype/ft_wrap.c $(SDL_TTF) $(FREETYPE)
+_camera src_c/camera_v4l2.c $(SDL) $(DEBUG)
+mixer src_c/mixer.c $(SDL_MIXER) $(SDL) $(DEBUG)
+font src_c/font.c $(SDL_TTF) $(SDL) $(FREETYPE) $(DEBUG)
+surface src_c/surface.c src_c/alphablit.c src_c/surface_fill.c $(SDL) $(DEBUG)
+mixer_music src_c/music.c $(SDL_MIXER) $(SDL) $(DEBUG)
+EOF
+
+        # Build with custom configuration
+        export CFLAGS="-O2 -march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard"
+        export PYGAME_HIDE_SUPPORT_PROMPT=1
+
+        if $PYTHON_CMD setup.py build 2>/tmp/pygame_build.log && $PYTHON_CMD setup.py install 2>>/tmp/pygame_build.log; then
+            if $PYTHON_CMD -c "import pygame; print('pygame source build successful')" 2>/dev/null; then
+                log "✅ Pygame compiled from source successfully"
+                cd /
+                rm -rf "$PYGAME_BUILD_DIR"
+                return 0
+            fi
+        fi
+
+        log_warning "Source compilation failed, check /tmp/pygame_build.log"
+    fi
+
+    cd /
+    rm -rf "$PYGAME_BUILD_DIR"
+
+    # Method 5: Install system package as last resort
+    log "Method 5: Trying system package python3-pygame..."
+    if apt-get install -y python3-pygame -qq 2>/dev/null; then
+        if $PYTHON_CMD -c "import pygame; print('system pygame successful')" 2>/dev/null; then
+            log "✅ Pygame installed via system package"
+            return 0
+        fi
+    fi
+
+    # Method 6: Install minimal pygame (audio-only)
+    log "Method 6: Installing minimal pygame for audio functionality..."
+    if $PYTHON_CMD -m pip install --no-cache-dir pygame-ce>=2.1.0 --no-warn-script-location 2>/dev/null; then
+        if $PYTHON_CMD -c "import pygame; pygame.mixer.init(); print('pygame-ce successful')" 2>/dev/null; then
+            log "✅ Pygame Community Edition installed successfully"
+            return 0
+        fi
+    fi
+
+    log_error "❌ All pygame installation methods failed"
+    return 1
+}
+
 # Install Python dependencies (optimized)
 install_python_deps() {
     log_info "Installing Python dependencies (optimized)..."
@@ -704,10 +868,9 @@ install_python_deps() {
     # Upgrade pip first with optimizations
     $PYTHON_CMD -m pip install --upgrade --no-cache-dir pip setuptools wheel
 
-    # Core dependencies
-    PYTHON_DEPS=(
+    # Core dependencies (excluding pygame - handled separately)
+    CORE_DEPS=(
         "flask>=2.0.0"
-        "pygame>=2.1.0"
         "psutil>=5.8.0"
         "pytz>=2021.3"
         "requests>=2.25.0"
@@ -719,42 +882,59 @@ install_python_deps() {
     )
 
     # Board-specific GPIO libraries
+    GPIO_DEPS=()
     case "$BOARD_TYPE" in
         "NanoPi"|"Orange Pi")
-            PYTHON_DEPS+=("OPi.GPIO>=0.4.0")
+            GPIO_DEPS+=("OPi.GPIO>=0.4.0")
             ;;
         "Raspberry Pi")
-            PYTHON_DEPS+=("RPi.GPIO>=0.7.0")
+            GPIO_DEPS+=("RPi.GPIO>=0.7.0")
             ;;
         *)
             log_warning "Unknown board type, installing both GPIO libraries"
-            PYTHON_DEPS+=("OPi.GPIO>=0.4.0" "RPi.GPIO>=0.7.0")
+            GPIO_DEPS+=("OPi.GPIO>=0.4.0" "RPi.GPIO>=0.7.0")
             ;;
     esac
 
-    # Install all dependencies in one command for speed
-    log "Installing all Python packages in batch..."
-    if ! $PYTHON_CMD -m pip install --no-cache-dir --no-warn-script-location "${PYTHON_DEPS[@]}" 2>/dev/null; then
-        log_warning "Batch installation failed, falling back to individual packages..."
+    # Install core dependencies first
+    log "Installing core Python packages..."
+    if ! $PYTHON_CMD -m pip install --no-cache-dir --no-warn-script-location "${CORE_DEPS[@]}" 2>/dev/null; then
+        log_warning "Batch installation failed, installing individually..."
 
-        # Fallback: Install dependencies individually with retry logic
-        for package in "${PYTHON_DEPS[@]}"; do
-            log_info "Installing Python package: $package"
-            for attempt in {1..2}; do  # Reduced attempts from 3 to 2
-                if $PYTHON_CMD -m pip install --no-cache-dir "$package" --no-warn-script-location; then
+        # Install core dependencies individually
+        for package in "${CORE_DEPS[@]}"; do
+            log_info "Installing core package: $package"
+            for attempt in {1..2}; do
+                if $PYTHON_CMD -m pip install --no-cache-dir "$package" --no-warn-script-location 2>/dev/null; then
                     break
                 else
                     log_warning "Attempt $attempt failed for $package, retrying..."
-                    sleep 1  # Reduced sleep from 2 to 1
+                    sleep 1
                 fi
 
                 if [[ $attempt -eq 2 ]]; then
-                    log_warning "Failed to install $package after 2 attempts (may work anyway)"
+                    log_error "Failed to install critical package: $package"
                 fi
             done
         done
     else
-        log "Batch installation completed successfully"
+        log "Core packages installed successfully"
+    fi
+
+    # Install GPIO libraries
+    log "Installing GPIO libraries..."
+    for package in "${GPIO_DEPS[@]}"; do
+        log_info "Installing GPIO package: $package"
+        if ! $PYTHON_CMD -m pip install --no-cache-dir "$package" --no-warn-script-location 2>/dev/null; then
+            log_warning "Failed to install $package (GPIO functionality may be limited)"
+        fi
+    done
+
+    # Install pygame with intelligent methods
+    if ! install_pygame_intelligent; then
+        log_error "❌ CRITICAL: Pygame installation failed completely"
+        log_error "Bell News requires pygame for audio functionality"
+        exit 1
     fi
 
     log "Python dependencies installation completed"
@@ -888,26 +1068,72 @@ test_installation() {
         return 1
     fi
 
-    # Test Python modules
-    TEST_MODULES=("flask" "pygame" "psutil" "pytz")
-    for module in "${TEST_MODULES[@]}"; do
+    # Test core Python modules
+    CORE_MODULES=("flask" "psutil" "pytz" "requests")
+    for module in "${CORE_MODULES[@]}"; do
         if ! $PYTHON_CMD -c "import $module" 2>/dev/null; then
-            log_error "Python module test failed: $module"
+            log_error "Core module test failed: $module"
             return 1
         fi
     done
+    log "Core modules test: PASSED"
 
-    # Test GPIO (non-critical)
-    GPIO_TEST=false
-    if $PYTHON_CMD -c "import OPi.GPIO" 2>/dev/null; then
-        GPIO_TEST=true
-        log "GPIO test: OPi.GPIO available"
-    elif $PYTHON_CMD -c "import RPi.GPIO" 2>/dev/null; then
-        GPIO_TEST=true
-        log "GPIO test: RPi.GPIO available"
+    # Test pygame specifically with detailed diagnostics
+    log_info "Testing pygame installation..."
+    if $PYTHON_CMD -c "import pygame; print('Pygame import: OK')" 2>/dev/null; then
+        log "✅ Pygame import test: PASSED"
+
+        # Test pygame mixer (critical for Bell News)
+        if $PYTHON_CMD -c "import pygame; pygame.mixer.init(); print('Pygame mixer: OK'); pygame.mixer.quit()" 2>/dev/null; then
+            log "✅ Pygame mixer test: PASSED"
+        else
+            log_warning "Pygame mixer test failed (audio may not work)"
+        fi
+
+        # Test pygame display (less critical)
+        if $PYTHON_CMD -c "import pygame; import os; os.environ['SDL_VIDEODRIVER']='dummy'; pygame.display.init(); print('Pygame display: OK'); pygame.display.quit()" 2>/dev/null; then
+            log "✅ Pygame display test: PASSED"
+        else
+            log_warning "Pygame display test failed (visual features may be limited)"
+        fi
+
     else
-        log_warning "GPIO libraries not available (display will use mock mode)"
+        log_error "❌ CRITICAL: Pygame import test failed"
+        log_error "This should not happen after intelligent installation"
+        return 1
     fi
+
+    # Test GPIO libraries (board-specific)
+    GPIO_AVAILABLE=false
+    case "$BOARD_TYPE" in
+        "NanoPi"|"Orange Pi")
+            if $PYTHON_CMD -c "import OPi.GPIO; print('OPi.GPIO available')" 2>/dev/null; then
+                GPIO_AVAILABLE=true
+                log "✅ OPi.GPIO test: PASSED"
+            else
+                log_warning "OPi.GPIO not available (hardware control limited)"
+            fi
+            ;;
+        "Raspberry Pi")
+            if $PYTHON_CMD -c "import RPi.GPIO; print('RPi.GPIO available')" 2>/dev/null; then
+                GPIO_AVAILABLE=true
+                log "✅ RPi.GPIO test: PASSED"
+            else
+                log_warning "RPi.GPIO not available (hardware control limited)"
+            fi
+            ;;
+        *)
+            if $PYTHON_CMD -c "import OPi.GPIO" 2>/dev/null; then
+                GPIO_AVAILABLE=true
+                log "✅ OPi.GPIO test: PASSED"
+            elif $PYTHON_CMD -c "import RPi.GPIO" 2>/dev/null; then
+                GPIO_AVAILABLE=true
+                log "✅ RPi.GPIO test: PASSED"
+            else
+                log_warning "No GPIO libraries available (hardware control disabled)"
+            fi
+            ;;
+    esac
 
     # Test application files
     REQUIRED_FILES=("nanopi_monitor.py" "nano_web_timer.py" "main.py")
