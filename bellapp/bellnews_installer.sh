@@ -227,6 +227,54 @@ detect_system() {
     fi
 }
 
+# Check system compatibility for Python compilation
+check_build_requirements() {
+    log_info "Checking system compatibility for Python compilation..."
+
+    local requirements_met=true
+
+    # Check available disk space (need at least 1GB for Python build)
+    AVAILABLE_SPACE=$(df /usr/src 2>/dev/null | awk 'NR==2 {print $4}' || echo "0")
+    if [[ $AVAILABLE_SPACE -lt 1048576 ]]; then  # 1GB in KB
+        log_error "Insufficient disk space. Need at least 1GB free in /usr/src"
+        requirements_met=false
+    else
+        log "Disk space check: OK ($(($AVAILABLE_SPACE / 1024))MB available)"
+    fi
+
+    # Check memory (need at least 512MB for compilation)
+    AVAILABLE_MEM=$(free -m | awk 'NR==2{print $7}' || echo "0")
+    if [[ $AVAILABLE_MEM -lt 256 ]]; then
+        log_warning "Low available memory ($AVAILABLE_MEM MB). Python compilation may be slow"
+    else
+        log "Memory check: OK (${AVAILABLE_MEM}MB available)"
+    fi
+
+    # Check for essential build tools
+    REQUIRED_TOOLS=("gcc" "make" "wget")
+    for tool in "${REQUIRED_TOOLS[@]}"; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            log_warning "Required build tool missing: $tool (will be installed)"
+        fi
+    done
+
+    # Check internet connectivity
+    if ! wget -q --spider --timeout=10 https://www.python.org 2>/dev/null; then
+        log_error "No internet connection or unable to reach python.org"
+        log_error "Internet access is required to download Python source"
+        requirements_met=false
+    else
+        log "Internet connectivity check: OK"
+    fi
+
+    if [[ "$requirements_met" == "false" ]]; then
+        log_error "System requirements not met for Python compilation"
+        exit 1
+    fi
+
+    log "System compatibility check passed"
+}
+
 # Check Python version
 check_python() {
     log_info "Checking Python installation..."
@@ -269,26 +317,32 @@ install_system_deps() {
         log "Package lists are recent, skipping update"
     fi
 
-    # Essential build tools for Python compilation
-    BUILD_DEPS=(
+    # Essential build tools for Python compilation (ordered by importance)
+    CRITICAL_DEPS=(
         "build-essential"
         "libssl-dev"
         "zlib1g-dev"
-        "libncurses5-dev"
         "libffi-dev"
         "libsqlite3-dev"
+        "wget"
+        "curl"
+        "make"
+        "gcc"
+    )
+
+    IMPORTANT_DEPS=(
+        "libncurses5-dev"
         "libbz2-dev"
         "libreadline-dev"
         "libgdbm-dev"
         "liblzma-dev"
         "libexpat1-dev"
-        "libmpdec-dev"
         "tk-dev"
-        "wget"
-        "curl"
-        "make"
-        "gcc"
         "git"
+    )
+
+    OPTIONAL_DEPS=(
+        "libmpdec-dev"
         "uuid-dev"
     )
 
@@ -304,32 +358,67 @@ install_system_deps() {
         "python3-dev"
     )
 
-    # Combine all dependencies
-    ALL_DEPS=("${BUILD_DEPS[@]}" "${SYSTEM_DEPS[@]}")
+    # Install packages in priority order
+    log "Installing system packages in priority order..."
 
-    log "Installing ${#ALL_DEPS[@]} system packages..."
-
-    # Install packages with retry logic
-    for package in "${ALL_DEPS[@]}"; do
+    # Install critical dependencies first (must succeed)
+    log "Installing critical build dependencies..."
+    for package in "${CRITICAL_DEPS[@]}"; do
         if ! dpkg -l | grep -q "^ii  $package "; then
-            log_info "Installing $package..."
-            for attempt in {1..3}; do
+            log_info "Installing critical package: $package"
+            if ! apt-get install -y "$package" -qq; then
+                log_error "Failed to install critical package: $package"
+                log_error "Python compilation will likely fail without this package"
+                exit 1
+            fi
+        else
+            log_info "$package already installed"
+        fi
+    done
+
+    # Install important dependencies (retry on failure)
+    log "Installing important build dependencies..."
+    for package in "${IMPORTANT_DEPS[@]}"; do
+        if ! dpkg -l | grep -q "^ii  $package "; then
+            log_info "Installing important package: $package"
+            for attempt in {1..2}; do
                 if apt-get install -y "$package" -qq; then
                     break
                 else
                     log_warning "Attempt $attempt failed for $package, retrying..."
-                    sleep 2
+                    sleep 1
                 fi
 
-                if [[ $attempt -eq 3 ]]; then
-                    # For optional build dependencies, warn but continue
-                    if [[ "$package" == "libmpdec-dev" || "$package" == "uuid-dev" ]]; then
-                        log_warning "Failed to install optional $package (may not be available on this OS version)"
-                    else
-                        log_error "Failed to install required $package after 3 attempts"
-                    fi
+                if [[ $attempt -eq 2 ]]; then
+                    log_warning "Failed to install $package (Python may still compile)"
                 fi
             done
+        else
+            log_info "$package already installed"
+        fi
+    done
+
+    # Install optional dependencies (warn on failure)
+    log "Installing optional build dependencies..."
+    for package in "${OPTIONAL_DEPS[@]}"; do
+        if ! dpkg -l | grep -q "^ii  $package "; then
+            log_info "Installing optional package: $package"
+            if ! apt-get install -y "$package" -qq 2>/dev/null; then
+                log_warning "Failed to install optional $package (not available on this OS version)"
+            fi
+        else
+            log_info "$package already installed"
+        fi
+    done
+
+    # Install system dependencies for Bell News
+    log "Installing Bell News system dependencies..."
+    for package in "${SYSTEM_DEPS[@]}"; do
+        if ! dpkg -l | grep -q "^ii  $package "; then
+            log_info "Installing system package: $package"
+            if ! apt-get install -y "$package" -qq; then
+                log_warning "Failed to install $package (may affect Bell News functionality)"
+            fi
         else
             log_info "$package already installed"
         fi
@@ -338,14 +427,14 @@ install_system_deps() {
     log "System dependencies installed successfully"
 }
 
-# Compile and install Python 3.12 (optimized)
+# Compile and install Python 3.12 (reliable)
 install_python312() {
     if [[ "$PYTHON_INSTALLED" == "true" ]]; then
         log "Python 3.12+ already available, skipping compilation"
         return 0
     fi
 
-    log_info "Compiling Python $PYTHON_VERSION from source (optimized)..."
+    log_info "Compiling Python $PYTHON_VERSION from source (reliable build)..."
 
     # Create source directory
     mkdir -p /usr/src
@@ -357,7 +446,6 @@ install_python312() {
 
     if [[ ! -f "$PYTHON_TAR" ]]; then
         log "Downloading Python $PYTHON_VERSION..."
-        # Use multiple connections for faster download
         wget -q --show-progress --tries=3 --timeout=30 "$PYTHON_URL" || {
             log_error "Failed to download Python source"
             exit 1
@@ -369,61 +457,114 @@ install_python312() {
     tar -xzf "$PYTHON_TAR"
     cd "Python-${PYTHON_VERSION}"
 
-    # Configure build (optimized for speed)
-    log "Configuring Python build (optimized)..."
+    # Configure build with multiple fallback options
+    log "Configuring Python build..."
 
-    # Use faster configuration without full optimizations for quicker build
-    if ! ./configure \
+    # Try configurations in order of preference (most reliable first)
+    if ./configure \
         --enable-shared \
-        --with-computed-gotos \
         --enable-loadable-sqlite-extensions \
-        --disable-test-modules \
-        --quiet 2>/dev/null; then
-
-        log_warning "Optimized configure failed, trying minimal configuration..."
-
-        # Fallback to minimal configuration
-        ./configure \
-            --enable-shared \
-            --enable-loadable-sqlite-extensions \
-            --disable-test-modules \
-            --quiet || {
-            log_error "Python configure failed"
-            exit 1
-        }
+        --with-system-expat \
+        --enable-ipv6 \
+        --quiet >/dev/null 2>&1; then
+        log "Configuration successful: standard build"
+        BUILD_TYPE="standard"
+    elif ./configure \
+        --enable-shared \
+        --enable-loadable-sqlite-extensions \
+        --quiet >/dev/null 2>&1; then
+        log "Configuration successful: minimal build"
+        BUILD_TYPE="minimal"
+    elif ./configure \
+        --quiet >/dev/null 2>&1; then
+        log "Configuration successful: basic build"
+        BUILD_TYPE="basic"
+    else
+        log_error "All Python configure attempts failed"
+        log_error "This may be due to missing dependencies or unsupported system"
+        exit 1
     fi
 
-    # Compile (optimized)
+    # Determine optimal build settings
     CORES=$(nproc)
-    # Use slightly fewer cores to prevent system freeze
-    CORES=$((CORES > 1 ? CORES - 1 : 1))
-    log "Compiling Python with $CORES cores (optimized build - 5-15 minutes)..."
+    if [[ $CORES -gt 4 ]]; then
+        # Use fewer cores on high-core systems to prevent memory issues
+        BUILD_CORES=$((CORES / 2))
+    elif [[ $CORES -gt 1 ]]; then
+        BUILD_CORES=$((CORES - 1))
+    else
+        BUILD_CORES=1
+    fi
 
-    # Build only essential components for faster compilation
+    log "Starting Python compilation with $BUILD_CORES cores ($BUILD_TYPE configuration)..."
+    log "This may take 10-30 minutes depending on your system..."
+
+    # Build with error handling and progress tracking
     (
-        make -j"$CORES" build_all > /tmp/python_build.log 2>&1 &
+        # Use standard make instead of build_all for better compatibility
+        make -j"$BUILD_CORES" > /tmp/python_build.log 2>&1 &
         BUILD_PID=$!
 
-        # Progress indicator
+        # Progress indicator with time tracking
+        START_TIME=$(date +%s)
         while kill -0 $BUILD_PID 2>/dev/null; do
+            CURRENT_TIME=$(date +%s)
+            ELAPSED=$((CURRENT_TIME - START_TIME))
             echo -n "."
-            sleep 5  # More frequent updates
+
+            # Show elapsed time every minute
+            if [[ $((ELAPSED % 60)) -eq 0 ]] && [[ $ELAPSED -gt 0 ]]; then
+                echo " (${ELAPSED}s)"
+            fi
+            sleep 10
         done
+
         wait $BUILD_PID
+        BUILD_EXIT_CODE=$?
+
+        TOTAL_TIME=$(($(date +%s) - START_TIME))
+        echo
+        log "Build completed in ${TOTAL_TIME} seconds"
+
+        exit $BUILD_EXIT_CODE
     ) || {
-        log_error "Python compilation failed. Check /tmp/python_build.log"
-        exit 1
+        log_error "Python compilation failed!"
+        log_error "Build log saved to: /tmp/python_build.log"
+
+        # Show last few lines of build log for debugging
+        if [[ -f /tmp/python_build.log ]]; then
+            log_error "Last 10 lines of build log:"
+            tail -10 /tmp/python_build.log | while read line; do
+                log_error "  $line"
+            done
+        fi
+
+        # Try single-core build as fallback
+        log_warning "Attempting single-core build as fallback..."
+        if make -j1 > /tmp/python_build_fallback.log 2>&1; then
+            log "Single-core build succeeded!"
+        else
+            log_error "Single-core build also failed. Check /tmp/python_build_fallback.log"
+            exit 1
+        fi
     }
 
-    echo  # New line after dots
     log "Python compilation completed successfully"
 
     # Install Python
     log "Installing Python 3.12..."
-    make altinstall > /tmp/python_install.log 2>&1 || {
-        log_error "Python installation failed. Check /tmp/python_install.log"
+    if ! make altinstall > /tmp/python_install.log 2>&1; then
+        log_error "Python installation failed!"
+        log_error "Install log saved to: /tmp/python_install.log"
+
+        if [[ -f /tmp/python_install.log ]]; then
+            log_error "Last 5 lines of install log:"
+            tail -5 /tmp/python_install.log | while read line; do
+                log_error "  $line"
+            done
+        fi
         exit 1
-    }
+    fi
 
     # Update shared library cache
     ldconfig
@@ -433,19 +574,30 @@ install_python312() {
         INSTALLED_VERSION=$(python3.12 --version)
         log "Python installation successful: $INSTALLED_VERSION"
 
-        # Create symlink for convenience
+        # Test basic functionality
+        if python3.12 -c "import sys; print('Python test successful')" >/dev/null 2>&1; then
+            log "Python functionality test passed"
+        else
+            log_warning "Python installed but basic test failed"
+        fi
+
+        # Create symlinks for convenience
         ln -sf /usr/local/bin/python3.12 /usr/local/bin/python3
         ln -sf /usr/local/bin/pip3.12 /usr/local/bin/pip3
+        log "Created Python symlinks"
 
     else
         log_error "Python installation verification failed"
+        log_error "python3.12 command not found in PATH"
         exit 1
     fi
 
-    # Cleanup
+    # Cleanup build files
     log "Cleaning up build files..."
     cd /
     rm -rf "/usr/src/Python-${PYTHON_VERSION}" "/usr/src/${PYTHON_TAR}"
+
+    log "Python 3.12 installation completed successfully!"
 }
 
 # Install Python dependencies (optimized)
@@ -694,6 +846,7 @@ install_bellnews() {
     fi
 
     detect_system
+    check_build_requirements
     check_python
     install_system_deps
     install_python312
