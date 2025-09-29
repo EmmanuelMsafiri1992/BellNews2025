@@ -157,12 +157,15 @@ install_system_deps() {
         "libreadline-dev"
         "libgdbm-dev"
         "liblzma-dev"
+        "libexpat1-dev"
+        "libmpdec-dev"
         "tk-dev"
         "wget"
         "curl"
         "make"
         "gcc"
         "git"
+        "uuid-dev"
     )
 
     # System dependencies for Bell News
@@ -195,7 +198,12 @@ install_system_deps() {
                 fi
 
                 if [[ $attempt -eq 3 ]]; then
-                    log_error "Failed to install $package after 3 attempts"
+                    # For optional build dependencies, warn but continue
+                    if [[ "$package" == "libmpdec-dev" || "$package" == "uuid-dev" ]]; then
+                        log_warning "Failed to install optional $package (may not be available on this OS version)"
+                    else
+                        log_error "Failed to install required $package after 3 attempts"
+                    fi
                 fi
             done
         else
@@ -238,16 +246,30 @@ install_python312() {
 
     # Configure build
     log "Configuring Python build (this may take a while)..."
-    ./configure \
+
+    # Try full configuration first
+    if ! ./configure \
         --enable-optimizations \
         --enable-shared \
-        --with-system-ffi \
         --with-computed-gotos \
         --enable-loadable-sqlite-extensions \
-        --quiet || {
-        log_error "Python configure failed"
-        exit 1
-    }
+        --with-system-expat \
+        --with-system-libmpdec \
+        --enable-ipv6 \
+        --quiet 2>/dev/null; then
+
+        log_warning "Full configure failed, trying minimal configuration..."
+
+        # Fallback to minimal but reliable configuration
+        ./configure \
+            --enable-optimizations \
+            --enable-shared \
+            --enable-loadable-sqlite-extensions \
+            --quiet || {
+            log_error "Python configure failed with minimal options"
+            exit 1
+        }
+    fi
 
     # Compile (use all available cores)
     CORES=$(nproc)
