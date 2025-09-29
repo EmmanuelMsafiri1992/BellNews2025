@@ -6,7 +6,8 @@
       "WebSearch",
       "Bash(bash:*)",
       "Bash(python3:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Read(//c/laragon/www/BellNewsV3/september29BellNews/FBellNewsUpdatedv3/**)"
     ],
     "deny": [],
     "ask": []
