@@ -93,16 +93,16 @@ def connect_wifi(config):
         
         if not all([ip, subnet, gateway]):
             log_message("error", "Static IP configuration incomplete (IP, Subnet, Gateway required). Falling back to dynamic.")
-            wlan.ifconfig('dhcp') # Fallback to DHCP if static config is bad
+            # No need to set ifconfig for DHCP - just proceed with connection
         else:
             try:
                 wlan.ifconfig((ip, subnet, gateway, dns))
                 log_message("info", f"Attempting static IP: {ip}, Subnet: {subnet}, Gateway: {gateway}, DNS: {dns}")
             except Exception as e:
                 log_message("error", f"Error setting static IP configuration: {e}. Falling back to dynamic.")
-                wlan.ifconfig('dhcp') # Fallback to DHCP if setting static fails
+                # No need to set ifconfig for DHCP - just proceed with connection
     else:
-        wlan.ifconfig('dhcp')
+        # For DHCP, no need to set ifconfig - ESP32 uses DHCP by default
         log_message("info", "Attempting dynamic IP (DHCP)")
 
     wlan.connect(ssid, password)
